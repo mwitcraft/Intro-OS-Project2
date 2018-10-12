@@ -118,6 +118,10 @@ int mimic(char* sourcePath, char* destPath){
   }
 
   int destFileDescriptor = open(destPath, destFlags, destPermissions);
+	if(destFileDescriptor == -1){
+		printf("Destination not valid\n");
+		exit(0);
+	}
 
   ssize_t num_read;
   char buf[MAX_BUFFER];
