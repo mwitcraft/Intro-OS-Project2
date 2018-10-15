@@ -18,6 +18,8 @@
 
 extern char** environ;
 
+int isDirectory(char* path);
+
 // Clears terminal "system clear"
 int wipe(){
 	system("clear");
@@ -95,6 +97,8 @@ int mimic(char* sourcePath, char* destPath){
 		destPathWithFileName = strcat(destPathWithFileName, sourceBaseName);
 		destPath = destPathWithFileName;
 
+		printf("%i\n", isDirectory(destPath));
+
     // Below is given in project specs
     // printf("Dest is directory\n");
     // char destName[MAX_FILENAME/2];
@@ -117,6 +121,36 @@ int mimic(char* sourcePath, char* destPath){
     // printf("%s\n", fullDestination);
   }
 
+	if(isSourceDirectory){
+		struct stat sourceStat;
+		stat(sourcePath, &sourceStat);
+		if(isDestDirectory){
+			if(mkdir(destPath, sourceStat.st_mode) == -1)
+				printf("%s\n", strerror(errno));
+		}
+		else{
+			// printf("\tBefore dirname: %s\n", destPath);
+			// char* destDirName = dirname(destPath);
+			// printf("\tAfter dirname: %s\n", destPath);
+			char destPathAsArray[10];
+			strncpy(destPathAsArray, destPath, strlen(destPath));
+			destPathAsArray[strlen(destPath)] = '\0';
+
+			if(isDirectory(dirname(destPathAsArray))){
+				// printf("%s\n", );
+					if(mkdir(destPath, sourceStat.st_mode) == -1)
+						printf("%s\n", strerror(errno));
+			}
+			else{
+				printf("Handle Later\n");
+
+			}
+		}
+		return 0;
+	}
+
+	printf("Running long\n");
+
   int destFileDescriptor = open(destPath, destFlags, destPermissions);
 	if(destFileDescriptor == -1){
 		printf("Destination not valid\n");
@@ -130,9 +164,17 @@ int mimic(char* sourcePath, char* destPath){
       printf("ERROR during writing\n");
     }
   }
-  if(num_read == -1){
-    printf("ERROR reading\n");
+  if(num_read == -1 && isSourceDirectory){
+    while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+			destFileDescriptor = open(dirname(destPath), destFlags, destPermissions);
+			if(write(destFileDescriptor, buf, num_read) != num_read){
+				printf("ERROR during writing");
+			}
+		}
   }
+	else if(num_read == -1){
+		printf("ERROR during writing");
+	}
 
   if(close(sourceFileDescriptor) == -1){
     printf("ERROR closing source\n");
@@ -169,7 +211,7 @@ int mimic(char* sourcePath, char* destPath){
 	// 	return -1;
 	// }
   //
-	// return 0;
+	return 0;
 }
 
 // Removes file pointed to by path
