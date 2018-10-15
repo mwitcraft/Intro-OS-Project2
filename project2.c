@@ -31,15 +31,20 @@ int wipe(){
 
 // Lists files and directories in target directory
 // If no directory is specified then prints files and directories in current directory
-int filez(char** target){
+int filez(int argNum, char** target){
 
+	char* command[argNum + 1];
+	for(int i = 0; i < argNum; ++i)
+		command[i] = target[i];
+	command[argNum] = "-1";
+	command[argNum + 1] = NULL;
 
 	int childPID;
 	switch (childPID = fork()) {
 		case -1:
 			printf("Error\n");
 		case 0:
-			execvp("ls", target);
+			execvp("ls", command);
 			printf("Syserr\n");
 		default:
 			waitpid(childPID, NULL, WUNTRACED);
@@ -427,7 +432,7 @@ int main(int argc, char** argv){
 			// Prints files according to 'filez' function
 			else if(!strcmp(args[0], "filez")){
 				args[0] = argv[0];
-				filez(args);
+				filez(argNum, args);
 				// if(argNum > 2)
 				// 	fprintf(stderr, "ERROR: Too many arguments\n");
 				// else{
