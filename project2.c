@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_BUFFER 1024
 #define MAX_FILENAME 257
@@ -19,6 +21,7 @@
 extern char** environ;
 
 int isDirectory(char* path);
+int isDirectoryEmpty(char* path);
 
 // Clears terminal "system clear"
 int wipe(){
@@ -28,21 +31,37 @@ int wipe(){
 
 // Lists files and directories in target directory
 // If no directory is specified then prints files and directories in current directory
-int filez(char* target){
+int filez(char** target){
 
-	char* command;
 
-	if(target == NULL)
-		command = "ls -1";
-	else{
-		command = "ls -1 ";
-		size_t spaceNeeded = strlen(command) + strlen(target);
-		char* spaceNeededStr = (char*)(malloc)(spaceNeeded * sizeof(char));
-		command = strcat(spaceNeededStr, command);
-		command = strcat(command, target);
+	int childPID;
+	switch (childPID = fork()) {
+		case -1:
+			printf("Error\n");
+		case 0:
+			execvp("ls", target);
+			printf("Syserr\n");
+		default:
+			waitpid(childPID, NULL, WUNTRACED);
 	}
+	return 0;
 
-	return system(command);
+	// char* command;
+	//
+	// if(target == NULL)
+	// 	command = "ls -1";
+	// else{
+	// 	command = "ls -1 ";
+	// 	size_t spaceNeeded = strlen(command) + strlen(target) + 1;
+	// 	char* spaceNeededStr = (char*)(malloc)(spaceNeeded * sizeof(char));
+	// 	command = strcat(spaceNeededStr, command);
+	// 	command = strcat(command, target);
+	// 	command[spaceNeeded] = '\0';
+	// }
+	//
+	// printf("\t%s\n", command);
+	//
+	// return system(command);
 }
 
 // Prints program's README
@@ -89,7 +108,10 @@ int mimic(char* sourcePath, char* destPath){
 
     // Below appears to be working for now
     char* slash = "/";
-		char* sourceBaseName = basename(sourcePath);
+		char sourcePathAsArray[10];
+		strncpy(sourcePathAsArray, sourcePath, strlen(sourcePath));
+		sourcePathAsArray[strlen(sourcePath)] = '\0';
+		char* sourceBaseName = basename(sourcePathAsArray);
 		size_t destPathWithFileNameSize = strlen(destPath) + strlen(slash) + strlen(sourceBaseName);
 		char* destPathWithFileName = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
 		destPathWithFileName = strcat(destPathWithFileName, destPath);
@@ -121,7 +143,8 @@ int mimic(char* sourcePath, char* destPath){
     // printf("%s\n", fullDestination);
   }
 
-	if(isSourceDirectory){
+	// Copies if source path points to directory and that directory is empty
+	if(isSourceDirectory && isDirectoryEmpty(sourcePath)){
 		struct stat sourceStat;
 		stat(sourcePath, &sourceStat);
 		if(isDestDirectory){
@@ -129,9 +152,6 @@ int mimic(char* sourcePath, char* destPath){
 				printf("%s\n", strerror(errno));
 		}
 		else{
-			// printf("\tBefore dirname: %s\n", destPath);
-			// char* destDirName = dirname(destPath);
-			// printf("\tAfter dirname: %s\n", destPath);
 			char destPathAsArray[10];
 			strncpy(destPathAsArray, destPath, strlen(destPath));
 			destPathAsArray[strlen(destPath)] = '\0';
@@ -147,6 +167,11 @@ int mimic(char* sourcePath, char* destPath){
 			}
 		}
 		return 0;
+	}
+	else{
+		// Just for now
+		printf("Directory is not empty\n");
+		return -1;
 	}
 
 	printf("Running long\n");
@@ -289,6 +314,23 @@ int isDirectory(char* path){
   return S_ISDIR(statbuf.st_mode);
 }
 
+int isDirectoryEmpty(char *dirname) {
+	int n = 0;
+  struct dirent *d;
+  DIR *dir = opendir(dirname);
+  if (dir == NULL) //Not a directory or doesn't exist
+    return 1;
+  while ((d = readdir(dir)) != NULL) {
+    ++n;
+    if(n > 2)
+      break;
+  }
+  closedir(dir);
+  if (n <= 2) //Directory Empty
+    return 1;
+  else
+    return 0;
+}
 // Main function where program begins
 int main(int argc, char** argv){
 
@@ -384,14 +426,16 @@ int main(int argc, char** argv){
 
 			// Prints files according to 'filez' function
 			else if(!strcmp(args[0], "filez")){
-				if(argNum > 2)
-					fprintf(stderr, "ERROR: Too many arguments\n");
-				else{
-					if(argNum == 1)
-						filez(NULL);
-					if(argNum ==2)
-						filez(args[1]);
-				}
+				args[0] = argv[0];
+				filez(args);
+				// if(argNum > 2)
+				// 	fprintf(stderr, "ERROR: Too many arguments\n");
+				// else{
+				// 	if(argNum == 1)
+				// 		filez(NULL);
+				// 	if(argNum ==2)
+				// 		filez(args[1]);
+				// }
 			}
 
 			 // Prints environment variables to stdout
