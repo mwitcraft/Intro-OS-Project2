@@ -104,11 +104,58 @@ int help(char* projectPath){
 
 int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
 	// printf("&&&&\t%s", fpath);
-	printf("Path inside nftw function: %s\n", fpath);
-	printf("Destination for mimic: %s\n", destinationForMimic);
-	isRecursive = 0;
-	inFTW = 1;
-	mimic(fpath, destinationForMimic, 0);
+	// printf("Path inside nftw function: %s\n", fpath);
+	// printf("Destination for mimic: %s\n", destinationForMimic);
+	// isRecursive = 0;
+	// inFTW = 1;
+	// mimic(fpath, destinationForMimic, 0);
+	// printf("112 \t %s", fpath);
+	char finalDestPath[MAX_FILENAME];
+	char containingFolder[strlen(initialMimic)];
+	finalDestPath[0] = '\0';
+	containingFolder[0] = '\0';
+	strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
+	strcat(finalDestPath, containingFolder); //adds the containingFolder to the final dest path
+	strcat(finalDestPath, "/"); //Adds a slash to add following
+	strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+
+	if(tflag == FTW_D){ //fpath points to a directory
+		struct stat sourceStat;
+		stat(fpath, &sourceStat);
+		if(mkdir(finalDestPath, sourceStat.st_mode) == -1){ //Creates a new directory with same permissions as fpath
+			if(errno != EEXIST){
+				printf("%s\n", strerror(errno));
+			}
+		}
+	}
+	else if(tflag == FTW_F){ //fpath points to a file
+
+	  unsigned int sourceFlags = O_RDONLY;
+	  unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC;
+	  unsigned int destPermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; // rw-rw-rw-
+
+	  // Opens source
+	  int sourceFileDescriptor = open(fpath, sourceFlags);
+	  int destFileDescriptor = open(finalDestPath, destFlags, destPermissions);
+
+		  ssize_t num_read;
+		  char buf[MAX_BUFFER];
+		  while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+		    if(write(destFileDescriptor, buf, num_read) != num_read){
+		      printf("ERROR during writing\n");
+		    }
+		  }
+		  if(num_read == -1){
+		    while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+					destFileDescriptor = open(dirname(finalDestPath), destFlags, destPermissions);
+					if(write(destFileDescriptor, buf, num_read) != num_read){
+						printf("ERROR during writing");
+					}
+				}
+		  }
+	}
+
+	return 0;
 
 }
 
@@ -116,7 +163,11 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 int mimic(char* sourcePath, char* destPath, int firstPass){
 	if(firstPass)
 		initialMimic = destPath;
-	printf("Initial Mimic: %s\n", initialMimic);
+	if(nftw(sourcePath, display_info, 20, 0) == 0)
+		return 0;
+
+
+	// printf("Initial Mimic: %s\n", initialMimic);
 
 	// printf("Destination for mimic inside mimic: %s\n", destinationForMimic);
 
