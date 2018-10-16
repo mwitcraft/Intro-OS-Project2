@@ -23,8 +23,7 @@
 
 extern char** environ;
 
-char* destinationForMimic;
-char* initialMimic;
+char initialMimic[MAX_BUFFER];
 int isRecursive = 0;
 int inFTW = 0;
 
@@ -103,13 +102,10 @@ int help(char* projectPath){
 }
 
 int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
-	// printf("&&&&\t%s", fpath);
-	// printf("Path inside nftw function: %s\n", fpath);
-	// printf("Destination for mimic: %s\n", destinationForMimic);
-	// isRecursive = 0;
-	// inFTW = 1;
-	// mimic(fpath, destinationForMimic, 0);
-	// printf("112 \t %s", fpath);
+
+	// Making arrays to hold the paths of the source and destination
+	// The final dest path is the location initally given to mimic to plus the
+	// entire path of the source
 	char finalDestPath[MAX_FILENAME];
 	char containingFolder[strlen(initialMimic)];
 	finalDestPath[0] = '\0';
@@ -119,52 +115,60 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 	strcat(finalDestPath, "/"); //Adds a slash to add following
 	strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
 
+	// If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
 	if(tflag == FTW_D){ //fpath points to a directory
+		// Gets the stat of the source path so we can apply the same permissions to the final destination
 		struct stat sourceStat;
 		stat(fpath, &sourceStat);
 		if(mkdir(finalDestPath, sourceStat.st_mode) == -1){ //Creates a new directory with same permissions as fpath
+			// Ignore warnings if the directory already exists
 			if(errno != EEXIST){
 				printf("%s\n", strerror(errno));
 			}
 		}
 	}
+	//If fpath points to a file, then that file is copied
 	else if(tflag == FTW_F){ //fpath points to a file
-
+		//Flags and permssions for opening the file descriptors
 	  unsigned int sourceFlags = O_RDONLY;
 	  unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC;
 	  unsigned int destPermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; // rw-rw-rw-
 
-	  // Opens source
+	  // Opens source and dest for copying
 	  int sourceFileDescriptor = open(fpath, sourceFlags);
 	  int destFileDescriptor = open(finalDestPath, destFlags, destPermissions);
 
-		  ssize_t num_read;
-		  char buf[MAX_BUFFER];
-		  while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
-		    if(write(destFileDescriptor, buf, num_read) != num_read){
-		      printf("ERROR during writing\n");
-		    }
-		  }
-		  if(num_read == -1){
-		    while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
-					destFileDescriptor = open(dirname(finalDestPath), destFlags, destPermissions);
-					if(write(destFileDescriptor, buf, num_read) != num_read){
-						printf("ERROR during writing");
-					}
+		// Attempts to copy file using the destpath given
+	  ssize_t num_read;
+	  char buf[MAX_BUFFER];
+	  while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+	    if(write(destFileDescriptor, buf, num_read) != num_read){
+	      printf("ERROR during writing\n");
+	    }
+	  }
+		// If above fails, tries to copy file using the dirname of the destpath given
+	  if(num_read == -1){
+	    while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+				destFileDescriptor = open(dirname(finalDestPath), destFlags, destPermissions);
+				if(write(destFileDescriptor, buf, num_read) != num_read){
+					printf("ERROR during writing");
 				}
-		  }
+			}
+	  }
 	}
-
 	return 0;
-
 }
 
 // Copies file from sourcePath to destPath
 int mimic(char* sourcePath, char* destPath, int firstPass){
-	if(firstPass)
-		initialMimic = destPath;
-	if(nftw(sourcePath, display_info, 20, 0) == 0)
+	if(firstPass){
+			initialMimic[0] = '\0';
+			strcat(initialMimic, destPath);
+	}
+	if(nftw(sourcePath, display_info, 20, 0) == 0){
+		initialMimic[0] = '\0';
 		return 0;
+	}
 
 
 	// printf("Initial Mimic: %s\n", initialMimic);
@@ -252,7 +256,7 @@ int mimic(char* sourcePath, char* destPath, int firstPass){
     // printf("%s\n", fullDestination);
   }
 
-	destinationForMimic = destPath;
+	// destinationForMimic = destPath;
 
 	// Copies if source path points to directory and that directory is empty
 	if(isSourceDirectory && (isDirectoryEmpty(sourcePath) || inFTW)){
@@ -368,7 +372,7 @@ int mimic(char* sourcePath, char* destPath, int firstPass){
 	// 	return -1;
 	// }
   //
-	destinationForMimic = initialMimic;
+	// destinationForMimic = initialMimic;
 	return 0;
 }
 
