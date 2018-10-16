@@ -108,12 +108,48 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 	// entire path of the source
 	char finalDestPath[MAX_FILENAME];
 	char containingFolder[strlen(initialMimic)];
+	char dirnameInitialMimic[strlen(initialMimic)];
 	finalDestPath[0] = '\0';
 	containingFolder[0] = '\0';
-	strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
-	strcat(finalDestPath, containingFolder); //adds the containingFolder to the final dest path
-	strcat(finalDestPath, "/"); //Adds a slash to add following
-	strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+	dirnameInitialMimic[0] = '\0';
+	strcat(dirnameInitialMimic, initialMimic);
+	// printf("before dirname Initial mimic: %s\n", initialMimic);
+	dirname(dirnameInitialMimic);
+	// printf("after dirname Initial mimic: %s\n", initialMimic);
+	//If the source path is a directory
+	if(isDirectory(initialMimic)){
+		strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
+		strcat(finalDestPath, containingFolder); //adds the containingFolder to the final dest path
+		strcat(finalDestPath, "/"); //Adds a slash to add following
+		strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+	}
+	//Or if the parent of the source path is a directory
+	else if(isDirectory(dirnameInitialMimic)){
+		// The basename of the destination (the folder that does not exist)
+		// replaces the name of the base folder from the source
+		// Below stores the basename of initialMimic in basenameInitialMimic
+		char basenameInitialMimic[strlen(initialMimic)];
+		basenameInitialMimic[0] = '\0';
+		strcat(basenameInitialMimic, initialMimic);
+		basename(basenameInitialMimic);
+		int slashLocation = 0;
+		for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
+			if(fpath[slashLocation] == '/')
+				break;
+		}
+		if(slashLocation == strlen(fpath))
+			printf("NO SLASH\n");
+		else{
+			printf("Slash location: %i\n", slashLocation);
+			for(int i = 0; i < strlen(basenameInitialMimic); ++i){
+					
+		}
+
+		}
+		// printf("Parent Directory Exists\n");
+		// printf("initialMimic: %s\n", initialMimic);
+		// printf("dirname(initialMimic): %s\n", dirnameInitialMimic);
+	}
 
 	// If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
 	if(tflag == FTW_D){ //fpath points to a directory
