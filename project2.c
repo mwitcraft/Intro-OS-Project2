@@ -103,6 +103,8 @@ int help(char* projectPath){
 
 int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
 	// printf("&&&&\t%s", fpath);
+	printf("Path inside nftw function: %s\n", fpath);
+	printf("Destination for mimic: %s\n", destinationForMimic);
 	isRecursive = 0;
 	inFTW = 1;
 	mimic(fpath, destinationForMimic);
@@ -110,6 +112,8 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 
 // Copies file from sourcePath to destPath
 int mimic(char* sourcePath, char* destPath){
+
+	printf("Destination for mimic inside mimic: %s\n", destinationForMimic);
 
   // Sets flags and permissions for the files for future use
   unsigned int sourceFlags = O_RDONLY;
@@ -124,19 +128,38 @@ int mimic(char* sourcePath, char* destPath){
   int isDestDirectory = isDirectory(destPath);
 
   if(isDestDirectory){
+		// printf("Dest Path inside if loop: %s", destPath);
+
 
     // Below appears to be working for now
     char* slash = "/";
 		char sourcePathAsArray[10];
 		strncpy(sourcePathAsArray, sourcePath, strlen(sourcePath));
 		sourcePathAsArray[strlen(sourcePath)] = '\0';
+		printf("Source path as array: %s\n", sourcePathAsArray);
 		char* sourceBaseName = basename(sourcePathAsArray);
+		printf("Source base name: %s\n", sourceBaseName);
 		size_t destPathWithFileNameSize = strlen(destPath) + strlen(slash) + strlen(sourceBaseName);
-		char* destPathWithFileName = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
-		destPathWithFileName = strcat(destPathWithFileName, destPath);
-		destPathWithFileName = strcat(destPathWithFileName, slash);
-		destPathWithFileName = strcat(destPathWithFileName, sourceBaseName);
-		destPath = destPathWithFileName;
+		// destPathWithFileName = strcat(destPathWithFileName, destPath);
+
+		char destPathWithFileName[MAX_FILENAME];
+		destPathWithFileName[0] = '\0';
+		strcat(destPathWithFileName, destPath);
+		strcat(destPathWithFileName, slash);
+		strcat(destPathWithFileName, sourceBaseName);
+		destPath = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
+		strcpy(destPath, destPathWithFileName);
+		// destPath = destPathWithFileName;
+		// printf("Destpath with filename: %s\n", destPathWithFileName);
+
+		// char* destPathWithFileName = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
+		// destPathWithFileName = strcat(destPathWithFileName, destPath);
+		// destPathWithFileName = strcat(destPathWithFileName, slash);
+		// destPathWithFileName = strcat(destPathWithFileName, sourceBaseName);
+		// destPath = destPathWithFileName;
+		// printf("Destpath with filename: %s\n", destPathWithFileName);
+
+		printf("Dest path inside making full dest name: %s\n", destPath);
 
 		// printf("%i\n", isDirectory(destPath));
 
@@ -210,10 +233,14 @@ int mimic(char* sourcePath, char* destPath){
 
 	printf("\t%s", sourcePath);
 	printf("\t%s\n", destPath);
+	for(int i = 0; i < strlen(destPath); ++i){
+		printf("\t\t%i\n", destPath[i]);
+	}
 	// printf("Running long\n");
 
   int destFileDescriptor = open(destPath, destFlags, destPermissions);
 	if(destFileDescriptor == -1){
+		printf("%s\n", strerror(errno));
 		printf("Destination not valid\n");
 		exit(0);
 	}
@@ -513,7 +540,11 @@ int main(int argc, char** argv){
 
 			// Copies file pointed to by 1st argument to 2nd argument
 			else if(!strcmp(args[0], "mimic")){
-				mimic(args[1], args[2]);
+				char* source = args[1];
+				char* dest = args[2];
+				source[strlen(source)] = '\0';
+				dest[strlen(dest)] = '\0';
+				mimic(source, dest);
 				// if(argNum == 3)
 				// 	mimic(args[1], args[2]);
 				// else if(argNum < 3)
