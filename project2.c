@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 500
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,8 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <ftw.h>
+#include <stdint.h>
 
 #define MAX_BUFFER 1024
 #define MAX_FILENAME 257
@@ -19,6 +22,10 @@
 #define SEPARATORS " \t\n"
 
 extern char** environ;
+
+char* destinationForMimic;
+int isRecursive = 0;
+int inFTW = 0;
 
 int isDirectory(char* path);
 int isDirectoryEmpty(char* path);
@@ -94,6 +101,13 @@ int help(char* projectPath){
 	return 0;
 }
 
+int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
+	// printf("&&&&\t%s", fpath);
+	isRecursive = 0;
+	inFTW = 1;
+	mimic(fpath, destinationForMimic);
+}
+
 // Copies file from sourcePath to destPath
 int mimic(char* sourcePath, char* destPath){
 
@@ -124,7 +138,7 @@ int mimic(char* sourcePath, char* destPath){
 		destPathWithFileName = strcat(destPathWithFileName, sourceBaseName);
 		destPath = destPathWithFileName;
 
-		printf("%i\n", isDirectory(destPath));
+		// printf("%i\n", isDirectory(destPath));
 
     // Below is given in project specs
     // printf("Dest is directory\n");
@@ -148,23 +162,35 @@ int mimic(char* sourcePath, char* destPath){
     // printf("%s\n", fullDestination);
   }
 
+	destinationForMimic = destPath;
+
 	// Copies if source path points to directory and that directory is empty
-	if(isSourceDirectory && isDirectoryEmpty(sourcePath)){
+	if(isSourceDirectory && (isDirectoryEmpty(sourcePath) || inFTW)){
+		// printf("169\n");
 		struct stat sourceStat;
 		stat(sourcePath, &sourceStat);
 		if(isDestDirectory){
-			if(mkdir(destPath, sourceStat.st_mode) == -1)
-				printf("%s\n", strerror(errno));
+			// printf("173\n");
+			if(mkdir(destPath, sourceStat.st_mode) == -1){
+				if(errno != EEXIST){
+					printf("%s\n", strerror(errno));
+				}
+			}
 		}
 		else{
+			// printf("181\n");
 			char destPathAsArray[10];
 			strncpy(destPathAsArray, destPath, strlen(destPath));
 			destPathAsArray[strlen(destPath)] = '\0';
 
 			if(isDirectory(dirname(destPathAsArray))){
+			// printf("187\n");
 				// printf("%s\n", );
-					if(mkdir(destPath, sourceStat.st_mode) == -1)
-						printf("%s\n", strerror(errno));
+					if(mkdir(destPath, sourceStat.st_mode) == -1){
+						if(errno != EEXIST){
+							printf("%s\n", strerror(errno));
+						}
+					}
 			}
 			else{
 				printf("Handle Later\n");
@@ -173,13 +199,18 @@ int mimic(char* sourcePath, char* destPath){
 		}
 		return 0;
 	}
-	else{
+	else if(isSourceDirectory && isRecursive == 1){
+
+		int flags = 0;
+		if(nftw(sourcePath, display_info, 20, flags))
 		// Just for now
 		printf("Directory is not empty\n");
 		return -1;
 	}
 
-	printf("Running long\n");
+	printf("\t%s", sourcePath);
+	printf("\t%s\n", destPath);
+	// printf("Running long\n");
 
   int destFileDescriptor = open(destPath, destFlags, destPermissions);
 	if(destFileDescriptor == -1){
@@ -336,6 +367,7 @@ int isDirectoryEmpty(char *dirname) {
   else
     return 0;
 }
+
 // Main function where program begins
 int main(int argc, char** argv){
 
@@ -390,6 +422,9 @@ int main(int argc, char** argv){
 			char* tkn = strtok(fullInput, SEPARATORS);
 			for(int i = 0; tkn != NULL; ++i){
 				++argNum;
+				if(!strcmp(tkn, "-r")){
+					isRecursive = 1;
+				}
 				args[i] = tkn;
 				tkn = strtok(NULL, SEPARATORS);
 			}
@@ -478,12 +513,13 @@ int main(int argc, char** argv){
 
 			// Copies file pointed to by 1st argument to 2nd argument
 			else if(!strcmp(args[0], "mimic")){
-				if(argNum == 3)
-					mimic(args[1], args[2]);
-				else if(argNum < 3)
-					fprintf(stderr, "ERROR: Too few arguments\n");
-				else if(argNum > 3)
-					fprintf(stderr, "ERROR: Too many arguments\n");
+				mimic(args[1], args[2]);
+				// if(argNum == 3)
+				// 	mimic(args[1], args[2]);
+				// else if(argNum < 3)
+				// 	fprintf(stderr, "ERROR: Too few arguments\n");
+				// else if(argNum > 3)
+				// 	fprintf(stderr, "ERROR: Too many arguments\n");
 			}
 
 			// Deletes files pointed to by ith argument
