@@ -26,13 +26,25 @@ extern char** environ;
 char initialMimic[MAX_BUFFER];
 int isRecursive = 0;
 int inFTW = 0;
+char mimicNewDir[MAX_FILENAME];
 
 int isDirectory(char* path);
 int isDirectoryEmpty(char* path);
 
 // Clears terminal "system clear"
 int wipe(){
-	system("clear");
+	// system("clear");
+
+	int childPID;
+	switch (childPID = fork()) {
+		case -1:
+			printf("Error\n");
+		case 0:
+			execlp("clear", "clear", NULL);
+			printf("Syserr\n");
+		default:
+			waitpid(childPID, NULL, WUNTRACED);
+	}
 	return 0;
 }
 
@@ -116,6 +128,7 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 	// printf("before dirname Initial mimic: %s\n", initialMimic);
 	dirname(dirnameInitialMimic);
 	// printf("after dirname Initial mimic: %s\n", initialMimic);
+
 	//If the source path is a directory
 	if(isDirectory(initialMimic)){
 		strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
@@ -123,32 +136,30 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 		strcat(finalDestPath, "/"); //Adds a slash to add following
 		strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
 	}
+
 	//Or if the parent of the source path is a directory
 	else if(isDirectory(dirnameInitialMimic)){
 		// The basename of the destination (the folder that does not exist)
 		// replaces the name of the base folder from the source
 		// Below stores the basename of initialMimic in basenameInitialMimic
-		char basenameInitialMimic[strlen(initialMimic)];
-		basenameInitialMimic[0] = '\0';
-		strcat(basenameInitialMimic, initialMimic);
-		basename(basenameInitialMimic);
-		int slashLocation = 0;
-		for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
-			if(fpath[slashLocation] == '/')
-				break;
-		}
-		if(slashLocation == strlen(fpath))
-			printf("NO SLASH\n");
-		else{
-			printf("Slash location: %i\n", slashLocation);
-			for(int i = 0; i < strlen(basenameInitialMimic); ++i){
-					
-		}
-
-		}
-		// printf("Parent Directory Exists\n");
-		// printf("initialMimic: %s\n", initialMimic);
-		// printf("dirname(initialMimic): %s\n", dirnameInitialMimic);
+		// char basenameInitialMimic[strlen(initialMimic)];
+		// basenameInitialMimic[0] = '\0';
+		// strcat(basenameInitialMimic, initialMimic);
+		// basename(basenameInitialMimic);
+		// int slashLocation = 0;
+		// for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
+		// 	if(fpath[slashLocation] == '/')
+		// 		break;
+		// }
+		// if(slashLocation == strlen(fpath))
+		// 	printf("NO SLASH\n");
+		// else{
+		// 	printf("Slash location: %i\n", slashLocation);
+		// 	for(int i = 0; i < strlen(basenameInitialMimic); ++i){
+		//
+		// 	}
+		//
+		// }
 	}
 
 	// If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
@@ -478,6 +489,33 @@ int mychdir(char* input){
 	return 0;
 }
 
+int mkdirz(char* path, mode_t mode){
+	if(mode == 0){
+		if(mkdir(path, 0777) == -1){
+			fprintf(stderr, "MKDIRZ ERROR: %s\n", strerror(errno));
+			return -1;
+		}
+		else
+			return 0;
+	}
+	else
+		if(mkdir(path, mode) == -1){
+			fprintf(stderr, "MKDIRZ ERROR: %s\n", strerror(errno));
+			return -1;
+		}
+		else
+			return 0;
+}
+
+int rmdirz(char* path){
+	if(rmdir(path) == -1){
+		fprintf(stderr, "RMDIRZ ERROR: %s\n", strerror(errno));
+		return -1;
+	}
+	else
+		return 0;
+}
+
 // Checks if path is a directory
 // Taken from https://oudalab.github.io/cs3113fa18/projects/morphmimic
 int isDirectory(char* path){
@@ -694,21 +732,67 @@ int main(int argc, char** argv){
 					mychdir(args[1]);
 			}
 
-			// Command not defined here, so pass to system
-			else{
+			else if(!strcmp(args[0], "mkdirz")){
+				if(argNum < 2)
+					fprintf(stderr, "ERROR: Too few arguments\n");
+				else{
+					for(int i = 1; i < argNum; ++i)
+						mkdirz(args[i], 0);
+				}
+			}
 
-				char* command = args[0];
-				char* space = " ";
-
-				for(int i = 1; i < argNum; ++i){
-					size_t memToAllocate = strlen(command) + strlen(args[i]) + strlen(space);
-					char* arrayOfCorrectSize = (char*)(malloc)(memToAllocate * sizeof(char));
-					command = strcat(arrayOfCorrectSize, command);
-					command = strcat(command, space);
-					command = strcat(command, args[i]);
+			else if(!strcmp(args[0], "rmdirz")){
+				if(argNum < 2)
+					fprintf(stderr, "ERROR: Too few arguments\n");
+				else{
+					for(int i = 1; i < argNum; ++i)
+						rmdirz(args[i]);
 				}
 
-				system(command);
+			}
+
+			// Command not defined here, so run command using system calls
+			else{
+				// Extracts first argument as the command to run
+				char command[MAX_BUFFER];
+				command[0] = '\0';
+				strcat(command, args[0]);
+
+				//Adds additional provided args to arguments list
+				char* arguments[MAX_BUFFER];
+				arguments[0] = command; // 1st command of args list must be the command to run
+				for(int i = 1; i < argNum; ++i){
+					arguments[i] = args[i];
+				}
+				arguments[argNum] = NULL; // Last entry in list must be NULL
+
+				// Fork a process to run the command with the provided arguments
+				int childPID = 0;
+				switch (childPID = fork()) {
+					case -1:
+						printf("Error\n");
+					case 0:
+						execvp(command, arguments);
+						printf("Syserr\n");
+						return 0;
+					default:
+						waitpid(childPID, NULL, WUNTRACED);
+				}
+				kill(childPID, SIGTERM);
+
+
+				// char* command = args[0];
+				// char* space = " ";
+				//
+				// for(int i = 1; i < argNum; ++i){
+				// 	size_t memToAllocate = strlen(command) + strlen(args[i]) + strlen(space);
+				// 	char* arrayOfCorrectSize = (char*)(malloc)(memToAllocate * sizeof(char));
+				// 	command = strcat(arrayOfCorrectSize, command);
+				// 	command = strcat(command, space);
+				// 	command = strcat(command, args[i]);
+				// }
+				//
+				// system(command);
 			}
 
 		}
