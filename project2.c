@@ -26,7 +26,7 @@ extern char** environ;
 char initialMimic[MAX_BUFFER];
 int isRecursive = 0;
 int inFTW = 0;
-char mimicNewDir[MAX_FILENAME];
+int isMimicIntoNewDir = 0;
 
 int isDirectory(char* path);
 int isDirectoryEmpty(char* path);
@@ -42,9 +42,11 @@ int wipe(){
 		case 0:
 			execlp("clear", "clear", NULL);
 			printf("Syserr\n");
+			return 0;
 		default:
 			waitpid(childPID, NULL, WUNTRACED);
 	}
+	kill(childPID, SIGTERM);
 	return 0;
 }
 
@@ -65,9 +67,11 @@ int filez(int argNum, char** target){
 		case 0:
 			execvp("ls", command);
 			printf("Syserr\n");
+			return 0;
 		default:
 			waitpid(childPID, NULL, WUNTRACED);
 	}
+	kill(childPID, SIGTERM);
 	return 0;
 
 	// char* command;
@@ -131,14 +135,58 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 
 	//If the source path is a directory
 	if(isDirectory(initialMimic)){
+		// printf("fpath: %s\n", fpath);
+		// printf("IS DIR\n");
 		strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
 		strcat(finalDestPath, containingFolder); //adds the containingFolder to the final dest path
 		strcat(finalDestPath, "/"); //Adds a slash to add following
-		strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+		if(!isMimicIntoNewDir)
+			strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+		else{
+				printf("sourcepath: %s\n", fpath);
+				printf("finalDestPath: %s\n", finalDestPath);
+			// printf("INTO ELSE\n");
+			char basenameInitialMimic[MAX_FILENAME];
+			basenameInitialMimic[0] = '\0';
+			strcat(basenameInitialMimic, initialMimic);
+			basename(basenameInitialMimic);
+			int slashLocation = 0;
+			for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
+				if(fpath[slashLocation] == '/')
+					break;
+			}
+			if(slashLocation == strlen(fpath)){
+				strcat(finalDestPath, basenameInitialMimic);
+			}
+			else{
+				char fpathAfterFirstSlash[MAX_FILENAME];
+				for(int i = slashLocation + 1; i < strlen(fpath); ++i){
+					fpathAfterFirstSlash[i-(slashLocation+1)] = fpath[i];
+				}
+				printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
+				// fpathAfterFirstSlash[strlen(fpath)] = '\0';
+				// printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
+				char newFPath[MAX_FILENAME];
+				newFPath[0] = '\0';
+				strcat(newFPath, basenameInitialMimic);
+				strcat(newFPath, "/");
+				strcat(newFPath, fpathAfterFirstSlash);
+				strncpy(finalDestPath, newFPath, strlen(newFPath));
+				finalDestPath[strlen(newFPath)] = '\0';
+				printf("newFPath: %s\n", newFPath);
+				// strcat(newFPath, fpathAfterFirstSlash);
+				// strcat(finalDestPath, fpathAfterFirstSlash);
+				printf("finalDestPath: %s\n", finalDestPath);
+			}
+		}
 	}
 
 	//Or if the parent of the source path is a directory
 	else if(isDirectory(dirnameInitialMimic)){
+		isMimicIntoNewDir = 1;
+		mkdirz(initialMimic, 0);
+		return 0;
+
 		// The basename of the destination (the folder that does not exist)
 		// replaces the name of the base folder from the source
 		// Below stores the basename of initialMimic in basenameInitialMimic
