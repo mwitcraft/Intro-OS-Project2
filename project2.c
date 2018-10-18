@@ -118,7 +118,8 @@ int help(char* projectPath){
 	return 0;
 }
 
-int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
+int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
+
 
 	// Making arrays to hold the paths of the source and destination
 	// The final dest path is the location initally given to mimic to plus the
@@ -160,10 +161,13 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 				strcat(finalDestPath, basenameInitialMimic);
 			}
 			else{
-				char fpathAfterFirstSlash[MAX_FILENAME];
+				char fpathAfterFirstSlash[strlen(fpath) - slashLocation];
+				fpathAfterFirstSlash[0] = '\0';
 				for(int i = slashLocation + 1; i < strlen(fpath); ++i){
 					fpathAfterFirstSlash[i-(slashLocation+1)] = fpath[i];
+					// printf("fpath[%i]: %c\n", i, fpath[i]);
 				}
+				// fpathAfterFirstSlash[strlen(fpath)] = '\0';
 				printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
 				// fpathAfterFirstSlash[strlen(fpath)] = '\0';
 				// printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
@@ -210,6 +214,9 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 		//
 		// }
 	}
+	else{
+		printf("ERROR: directory '%s' is not a valid directory(parent does not exist)\n");
+	}
 
 	// If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
 	if(tflag == FTW_D){ //fpath points to a directory
@@ -223,35 +230,43 @@ int display_info(const char *fpath, const struct stat *sb, int tflag,struct FTW 
 			}
 		}
 	}
+
 	//If fpath points to a file, then that file is copied
 	else if(tflag == FTW_F){ //fpath points to a file
-		//Flags and permssions for opening the file descriptors
-	  unsigned int sourceFlags = O_RDONLY;
-	  unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC;
-	  unsigned int destPermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; // rw-rw-rw-
-
-	  // Opens source and dest for copying
-	  int sourceFileDescriptor = open(fpath, sourceFlags);
-	  int destFileDescriptor = open(finalDestPath, destFlags, destPermissions);
-
-		// Attempts to copy file using the destpath given
-	  ssize_t num_read;
-	  char buf[MAX_BUFFER];
-	  while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
-	    if(write(destFileDescriptor, buf, num_read) != num_read){
-	      printf("ERROR during writing\n");
-	    }
-	  }
-		// If above fails, tries to copy file using the dirname of the destpath given
-	  if(num_read == -1){
-	    while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
-				destFileDescriptor = open(dirname(finalDestPath), destFlags, destPermissions);
-				if(write(destFileDescriptor, buf, num_read) != num_read){
-					printf("ERROR during writing");
-				}
+		if(copyFile(fpath, finalDestPath) == -1){
+			if(copyFile(fpath, dirname(finalDestPath)) == -1){
+					printf("ERROR copying file\n");
 			}
-	  }
+		}
 	}
+
+	// 	//Flags and permssions for opening the file descriptors
+	//   unsigned int sourceFlags = O_RDONLY;
+	//   unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC;
+	//   unsigned int destPermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; // rw-rw-rw-
+	//
+	//   // Opens source and dest for copying
+	//   int sourceFileDescriptor = open(fpath, sourceFlags);
+	//   int destFileDescriptor = open(finalDestPath, destFlags, destPermissions);
+	//
+	// 	// Attempts to copy file using the destpath given
+	//   ssize_t num_read;
+	//   char buf[MAX_BUFFER];
+	//   while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+	//     if(write(destFileDescriptor, buf, num_read) != num_read){
+	//       printf("ERROR during writing\n");
+	//     }
+	//   }
+	// 	// If above fails, tries to copy file using the dirname of the destpath given
+	//   if(num_read == -1){
+	//     while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+	// 			destFileDescriptor = open(dirname(finalDestPath), destFlags, destPermissions);
+	// 			if(write(destFileDescriptor, buf, num_read) != num_read){
+	// 				printf("ERROR during writing");
+	// 			}
+	// 		}
+	//   }
+	// }
 	return 0;
 }
 
@@ -271,12 +286,30 @@ int mimic(char** inputs, int numberOfInputs){
 		}
 		else{
 			strncpy(destPath, inputs[i], strlen(inputs[i]));
+			initialMimic[0] = '\0';
+			strcat(initialMimic, destPath);
 		}
 	}
 
-	printf("Source: %s\n", sourcePath);
-	printf("Destination: %s\n", destPath);
-	printf("Is recursive: %i\n", isRecursive);
+	if(isDirectory(sourcePath)){
+		// Copy/move directory recursively
+		if(isRecursive || isDirectoryEmpty(sourcePath)){
+			if(nftw(sourcePath, recursiveMimicMorph, 20, 0) == 0){
+				initialMimic[0] = '\0';
+				isMimicIntoNewDir = 0;
+				return 0;
+			}
+		}
+		// Try to copy/move non-empty directory without recursive flag
+		else{
+			printf("ERROR: Trying to copy non-empty directory without '-r'\n");
+			return -1;
+		}
+	}
+
+	// printf("Source: %s\n", sourcePath);
+	// printf("Destination: %s\n", destPath);
+	// printf("Is recursive: %i\n", isRecursive);
 	return 0;
 	// // if(firstPass){
 	// // 		initialMimic[0] = '\0';
@@ -611,6 +644,27 @@ int isDirectoryEmpty(char *dirname) {
     return 1;
   else
     return 0;
+}
+
+int copyFile(char* sourcePath, char* destPath){
+  // Sets flags and permissions for the files for future use
+  unsigned int sourceFlags = O_RDONLY; //Opens source as read only
+  unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC; // Opens destination as write only(WRONLY), and may create the file if it does not exist(CREAT)
+  unsigned int destPermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; // rw-rw-rw-
+
+	// Opens the paths given as file descriptors
+  int sourceFileDescriptor = open(sourcePath, sourceFlags);
+  int destFileDescriptor = open(destPath, destFlags, destPermissions);
+
+	// Attempts to copy file using the destpath given
+  ssize_t num_read;
+  char buf[MAX_BUFFER];
+  while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
+    if(write(destFileDescriptor, buf, num_read) != num_read){
+      printf("ERROR during writing\n");
+    }
+  }
+	return num_read;
 }
 
 // Main function where program begins
