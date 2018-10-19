@@ -119,7 +119,7 @@ int help(char* projectPath){
 }
 
 int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
-
+	printf("initialMimic: %s\n", initialMimic);
 
 	// Making arrays to hold the paths of the source and destination
 	// The final dest path is the location initally given to mimic to plus the
@@ -161,13 +161,13 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 				strcat(finalDestPath, basenameInitialMimic);
 			}
 			else{
-				char fpathAfterFirstSlash[strlen(fpath) - slashLocation];
+				char fpathAfterFirstSlash[strlen(fpath) - slashLocation - 1];
 				fpathAfterFirstSlash[0] = '\0';
 				for(int i = slashLocation + 1; i < strlen(fpath); ++i){
 					fpathAfterFirstSlash[i-(slashLocation+1)] = fpath[i];
 					// printf("fpath[%i]: %c\n", i, fpath[i]);
 				}
-				// fpathAfterFirstSlash[strlen(fpath)] = '\0';
+				fpathAfterFirstSlash[strlen(fpath) - slashLocation - 1] = '\0';
 				printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
 				// fpathAfterFirstSlash[strlen(fpath)] = '\0';
 				// printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
@@ -216,6 +216,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	}
 	else{
 		printf("ERROR: directory '%s' is not a valid directory(parent does not exist)\n");
+		return -1;
 	}
 
 	// If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
@@ -227,6 +228,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 			// Ignore warnings if the directory already exists
 			if(errno != EEXIST){
 				printf("%s\n", strerror(errno));
+				return -1;
 			}
 		}
 	}
@@ -236,6 +238,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 		if(copyFile(fpath, finalDestPath) == -1){
 			if(copyFile(fpath, dirname(finalDestPath)) == -1){
 					printf("ERROR copying file\n");
+					return -1;
 			}
 		}
 	}
@@ -283,13 +286,20 @@ int mimic(char** inputs, int numberOfInputs){
 		}
 		else if(sourcePath[0] == '\0'){
 			strncpy(sourcePath, inputs[i], strlen(inputs[i]));
+			sourcePath[strlen(inputs[i])] = '\0';
 		}
 		else{
 			strncpy(destPath, inputs[i], strlen(inputs[i]));
+			destPath[strlen(inputs[i])] = '\0';
+			printf("inputs[%i]: %s\n", i, inputs[i]);
+			printf("DestPath: %s\n", destPath);
 			initialMimic[0] = '\0';
 			strcat(initialMimic, destPath);
 		}
 	}
+
+	printf("SourcePath: %s\n", sourcePath);
+	printf("DestPath: %s\n", destPath);
 
 	if(isDirectory(sourcePath)){
 		// Copy/move directory recursively
