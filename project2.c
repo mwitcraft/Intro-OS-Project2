@@ -188,6 +188,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 
 	//Or if the parent of the source path is a directory
 	else if(isDirectory(dirnameInitialMimic)){
+		// printf("191: \tinitialMimic: %s\n", initialMimic);
 		isMimicIntoNewDir = 1;
 		mkdirz(initialMimic, 0);
 		return 0;
@@ -214,7 +215,13 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 		//
 		// }
 	}
+	else if(!strcmp(dirnameInitialMimic, initialMimic)){
+		isMimicIntoNewDir = 1;
+		mkdirz(dirnameInitialMimic, 0);
+		return 0;
+	}
 	else{
+		// printf("dirnameInitialMimic: %s\n", dirnameInitialMimic);
 		printf("ERROR: directory '%s' is not a valid directory(parent does not exist)\n");
 		return -1;
 	}
