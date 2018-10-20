@@ -450,270 +450,80 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	return 0;
 }
 
+int eraseAfterMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
+		// If fpath is file, erase that file
+		if(tflag == FTW_F){
+			erase(fpath);
+		}
+		// If fpath is a directory, remove that directory
+		else{
+			rmdirz(fpath);
+		}
+		return 0;
+}
+
+
+
 // Copies file from sourcePath to destPath
 int mimic(char** inputs, int numberOfInputs){
+	// Creates char arrays to hold the source and destination paths
+	// Initializes with size of MAX_FILENAME because don't know size
 	char sourcePath[MAX_FILENAME];
-	sourcePath[0] = '\0';
+	sourcePath[0] = '\0'; // Terminating char placed in front so when strings are added to it, it already has a terminating char
 	char destPath[MAX_FILENAME];
 	destPath[0] = '\0';
-	int isRecursive = 0;
+	int isRecursive = 0; // To store whether or not user specified recursive mimic or morph
 	for(int i = 1; i < numberOfInputs; ++i){
 		if(!strcmp(inputs[i], "-r")){
 			isRecursive = 1;
 		}
+		// First input not being '-r' is the source
 		else if(sourcePath[0] == '\0'){
 			strncpy(sourcePath, inputs[i], strlen(inputs[i]));
 			sourcePath[strlen(inputs[i])] = '\0';
 			initialSource[0] = '\0';
 			strcat(initialSource, sourcePath);
 		}
+		// Second input not being '-r' is the destination
 		else{
 			strncpy(destPath, inputs[i], strlen(inputs[i]));
 			destPath[strlen(inputs[i])] = '\0';
-			printf("inputs[%i]: %s\n", i, inputs[i]);
-			printf("DestPath: %s\n", destPath);
 			initialMimic[0] = '\0';
 			strcat(initialMimic, destPath);
 		}
 	}
 
-	printf("SourcePath: %s\n", sourcePath);
-	printf("DestPath: %s\n", destPath);
-
+	// If the source is a directory:
 	if(isDirectory(sourcePath)){
-		// Copy/move directory recursively
+		// Copy/move directory recursively if recursive flag is set or is directory is empty
 		if(isRecursive || isDirectoryEmpty(sourcePath)){
+			// Calls the recursiveMimicMorph function on every file/directory in sourcePath
 			if(nftw(sourcePath, recursiveMimicMorph, 20, 0) == 0){
+				// Resets all of the global variables necessary for mimic/morph to work
 				initialMimic[0] = '\0';
 				isMimicIntoNewDir = 0;
 				initialDirExists = 1;
-				return 0;
 			}
 		}
 		// Try to copy/move non-empty directory without recursive flag
+		// Throw error
 		else{
 			printf("ERROR: Trying to copy non-empty directory without '-r'\n");
 			return -1;
 		}
+
+		// If command is morph, remove all files contained in sourcepath
+		if(!strcmp(inputs[0], "morph")){
+			printf("Morph\n");
+			// Calls eraseAfterMorph function on every file in sourcePath
+			// FTW_DEPTH flag set to list all of the files inside a directory before the directory
+			// Necessary because you cannot remove a non-empty directory
+			nftw(sourcePath, eraseAfterMorph, 20, FTW_DEPTH);
+		}
 	}
 
-	// printf("Source: %s\n", sourcePath);
-	// printf("Destination: %s\n", destPath);
-	// printf("Is recursive: %i\n", isRecursive);
+
 	return 0;
-	// // if(firstPass){
-	// // 		initialMimic[0] = '\0';
-	// // 		strcat(initialMimic, destPath);
-	// // }
-	// // if(nftw(sourcePath, display_info, 20, 0) == 0){
-	// // 	initialMimic[0] = '\0';
-	// // 	return 0;
-	// // }
-	//
-	//
-	// // printf("Initial Mimic: %s\n", initialMimic);
-	//
-	// // printf("Destination for mimic inside mimic: %s\n", destinationForMimic);
-	//
-  // // Sets flags and permissions for the files for future use
-  // unsigned int sourceFlags = O_RDONLY;
-  // unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC;
-  // unsigned int destPermissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH; // rw-rw-rw-
-	//
-  // // Opens source
-  // int sourceFileDescriptor = open(sourcePath, sourceFlags);
-	//
-  // // Determines if source and path are directories
-  // int isSourceDirectory = isDirectory(sourcePath);
-  // int isDestDirectory = isDirectory(destPath);
-	//
-  // if(isDestDirectory){
-	// 	// printf("Dest Path inside if loop: %s", destPath);
-	//
-	//
-  //   // Below appears to be working for now
-  //   char* slash = "/";
-	// 	char sourcePathAsArray[10];
-	// 	strncpy(sourcePathAsArray, sourcePath, strlen(sourcePath));
-	// 	sourcePathAsArray[strlen(sourcePath)] = '\0';
-	// 	// printf("Source path as array: %s\n", sourcePathAsArray);
-	// 	char* sourceBaseName = basename(sourcePathAsArray);
-	// 	// printf("Source base name: %s\n", sourceBaseName);
-	// 	size_t destPathWithFileNameSize = strlen(destPath) + strlen(slash) + strlen(sourceBaseName);
-	// 	// destPathWithFileName = strcat(destPathWithFileName, destPath);
-	//
-	// 	char destPathWithFileName[MAX_FILENAME];
-	// 	destPathWithFileName[0] = '\0';
-	// 	strcat(destPathWithFileName, destPath);
-	// 	strcat(destPathWithFileName, slash);
-	// 	strcat(destPathWithFileName, sourceBaseName);
-	// 	destPath = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
-	// 	strcpy(destPath, destPathWithFileName);
-	// 	// destPath = destPathWithFileName;
-	// 	// printf("Destpath with filename: %s\n", destPathWithFileName);
-	//
-	// 	if(inFTW){
-	// 		//dest path is just initial mimic + source path
-	// 		destPathWithFileName[0] = '\0';
-	// 		strcat(destPathWithFileName, initialMimic);
-	// 		strcat(destPathWithFileName, slash);
-	// 		strcat(destPathWithFileName, sourcePath);
-	// 		destPathWithFileNameSize = strlen(destPath) + strlen(slash) + strlen(sourcePath);
-	// 		destPath = (char*)(malloc)(strlen(destPathWithFileName) * sizeof(char));
-	// 		strcpy(destPath, destPathWithFileName);
-	// 	}
-	//
-	// 	// char* destPathWithFileName = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
-	// 	// destPathWithFileName = strcat(destPathWithFileName, destPath);
-	// 	// destPathWithFileName = strcat(destPathWithFileName, slash);
-	// 	// destPathWithFileName = strcat(destPathWithFileName, sourceBaseName);
-	// 	// destPath = destPathWithFileName;
-	// 	// printf("Destpath with filename: %s\n", destPathWithFileName);
-	//
-	// 	// printf("Dest path inside making full dest name: %s\n", destPath);
-	//
-	// 	// printf("%i\n", isDirectory(destPath));
-	//
-  //   // Below is given in project specs
-  //   // printf("Dest is directory\n");
-  //   // char destName[MAX_FILENAME/2];
-  //   // char destPath[MAX_FILENAME/2];
-  //   // char destDirectory[MAX_FILENAME/2];
-  //   //
-  //   // strcpy(destName, basename(sourcePath)); //Gets the file name from source path
-  //   // printf("Dest File Name: %s", destName);
-  //   // strcpy(destDirectory, basename(destPath)); //Gets the last folder name from destination path
-  //   // strcpy(destPath, dirname(destPath)); //Gets the path from destination path
-  //   //
-  //   // // Creates fullDestination path using elements of path
-  //   // fullDestination[0] = '\0'; //Zeroes out string
-  //   // strcat(fullDestination, destPath);
-  //   // strcat(fullDestination, "/");
-  //   // strcat(fullDestination, destDirectory);
-  //   // strcat(fullDestination, "/");
-  //   // strcat(fullDestination, destName);
-  //   //
-  //   // printf("%s\n", fullDestination);
-  // }
-	//
-	// // destinationForMimic = destPath;
-	//
-	// // Copies if source path points to directory and that directory is empty
-	// if(isSourceDirectory && (isDirectoryEmpty(sourcePath) || inFTW)){
-	// 	// printf("169\n");
-	// 	struct stat sourceStat;
-	// 	stat(sourcePath, &sourceStat);
-	// 	if(isDestDirectory){
-	// 		// printf("173\n");
-	// 		if(mkdir(destPath, sourceStat.st_mode) == -1){
-	// 			if(errno != EEXIST){
-	// 				printf("%s\n", strerror(errno));
-	// 			}
-	// 		}
-	// 		else
-	// 			printf("Directory '%s' created\n", destPath);
-	// 	}
-	// 	else{
-	// 		// printf("181\n");
-	// 		char destPathAsArray[10];
-	// 		strncpy(destPathAsArray, destPath, strlen(destPath));
-	// 		destPathAsArray[strlen(destPath)] = '\0';
-	//
-	// 		if(isDirectory(dirname(destPathAsArray))){
-	// 		// printf("187\n");
-	// 			// printf("%s\n", );
-	// 				if(mkdir(destPath, sourceStat.st_mode) == -1){
-	// 					if(errno != EEXIST){
-	// 						printf("%s\n", strerror(errno));
-	// 					}
-	// 				}
-	// 		}
-	// 		else{
-	// 			printf("Handle Later\n");
-	//
-	// 		}
-	// 	}
-	// 	return 0;
-	// }
-	// else if(isSourceDirectory && isRecursive == 1){
-	//
-	// 	int flags = 0;
-	// 	if(nftw(sourcePath, display_info, 20, flags))
-	// 	// Just for now
-	// 	printf("Directory is not empty\n");
-	// 	return -1;
-	// }
-	//
-	// printf("\t%s", sourcePath);
-	// printf("\t%s\n", destPath);
-	// for(int i = 0; i < strlen(destPath); ++i){
-	// 	printf("\t\t%i\n", destPath[i]);
-	// }
-	// // printf("Running long\n");
-	//
-  // int destFileDescriptor = open(destPath, destFlags, destPermissions);
-	// if(destFileDescriptor == -1){
-	// 	printf("%s\n", strerror(errno));
-	// 	printf("Destination not valid\n");
-	// 	exit(0);
-	// }
-	//
-  // ssize_t num_read;
-  // char buf[MAX_BUFFER];
-  // while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
-  //   if(write(destFileDescriptor, buf, num_read) != num_read){
-  //     printf("ERROR during writing\n");
-  //   }
-  // }
-  // if(num_read == -1 && isSourceDirectory){
-  //   while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
-	// 		destFileDescriptor = open(dirname(destPath), destFlags, destPermissions);
-	// 		if(write(destFileDescriptor, buf, num_read) != num_read){
-	// 			printf("ERROR during writing");
-	// 		}
-	// 	}
-  // }
-	// else if(num_read == -1){
-	// 	printf("ERROR during writing");
-	// }
-	//
-  // if(close(sourceFileDescriptor) == -1){
-  //   printf("ERROR closing source\n");
-  // }
-	//
-  // if(close(destFileDescriptor) == -1){
-  //   printf("ERROR closing destination\n");
-  // }
-	//
-  // // Below is the mimic code for project1
-  // // ------------------------------------------------------
-  // // ------------------------------------------------------
-	// // // Determines if source file is a file or not
-	// // struct stat sourceBuf;
-	// // stat(sourcePath, &sourceBuf);
-	// // if(S_ISREG(sourceBuf.st_mode) == 0){
-	// // 	fprintf(stderr, "ERROR: Source is not file\n");
-	// // 	return -1;
-	// // }
-  // //
-	// // // Opens files as descriptors to feed into sendfile function
-	// // int sourceDescriptor = open(sourcePath, O_RDWR);
-	// // int destDescriptor = open(destPath, O_CREAT | O_RDWR, S_IRWXU);
-  // //
-	// // // Gets size of source file to provide to sendfile
-	// // struct stat toGetSize;
-	// // fstat(sourceDescriptor, &toGetSize);
-	// // int sourceSizeInBytes = toGetSize.st_size;
-  // //
-	// // // Copies file
-	// // // http://man7.org/linux/man-pages/man2/sendfile.2.html
-	// // if(sendfile(destDescriptor, sourceDescriptor, NULL, sourceSizeInBytes) == -1){
-	// // 	fprintf(stderr, "ERROR: Invalid mimic destination\n");
-	// // 	return -1;
-	// // }
-  // //
-	// // destinationForMimic = initialMimic;
-	// return 0;
 }
 
 // Removes file pointed to by path
@@ -1002,8 +812,7 @@ int main(int argc, char** argv){
 
 			// Copies file pointed to by 1st argument to 2nd argument
 			else if(!strcmp(args[0], "mimic")){
-				isMorph = 0;
-				// char* source = args[1];
+				// char* sorce = args[1];
 				// char* dest = args[2];
 				// source[strlen(source)] = '\0';
 				// dest[strlen(dest)] = '\0';
@@ -1028,7 +837,7 @@ int main(int argc, char** argv){
 
 			// Moves file pointed to by 1st argument to location pointed to by 2nd argument
 			else if(!strcmp(args[0], "morph")){
-				isMorph = 1;
+				mimic(args, argNum);
 
 				// if(argNum == 3)
 				// 	morph(args[1], args[2]);
