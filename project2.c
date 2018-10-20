@@ -221,7 +221,6 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 			strcat(finalDestPath, "/");
 			strcat(finalDestPath, sourceBasePlus);
 			printf("finalDestPath: %s\n", finalDestPath);
-			return 0;
 		}
 		else if (!initialDirExists) {
 			printf("InitialDir Does Not Exist\n");
@@ -236,7 +235,6 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 			fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)] = '\0';
 			strcat(finalDestPath, fPathAfterSourceBase);
 			printf("finalDestPath: %s\n", finalDestPath);
-			return 0;
 		}
 
 	}
@@ -250,6 +248,31 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 			printf("ERROR: parent is not a directory\n");
 		}
 	}
+
+	//If source(fpath) is a file, copy the files to the destination(finalDestPath)
+	if(tflag == FTW_F){ //fpath points to a file
+		printf("\tfpath is a file\n");
+		if(copyFile(fpath, finalDestPath) == -1){
+				printf("ERROR copying file\n");
+				return -1;
+		}
+	}
+
+	//If source(fpath) is a directory, create the directory as finalDestPath
+	else if(tflag == FTW_D){ //fpath points to a directory
+		printf("\tfpath is a directory\n");
+		// Gets the stat of the source path so we can apply the same permissions to the final destination
+		struct stat sourceStat;
+		stat(fpath, &sourceStat);
+		if(mkdirz(finalDestPath, sourceStat.st_mode) == -1){ //Creates a new directory with same permissions as fpath
+			// Ignore warnings if the directory already exists
+			if(errno != EEXIST){
+				printf("%s\n", strerror(errno));
+				return -1;
+			}
+		}
+	}
+
 
 
 
