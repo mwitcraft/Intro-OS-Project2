@@ -24,10 +24,12 @@
 extern char** environ;
 
 char initialMimic[MAX_BUFFER];
+char initialSource[MAX_BUFFER];
 int isRecursive = 0;
 int inFTW = 0;
 int isMimicIntoNewDir = 0;
 int isMorph = 0;
+int initialDirExists = 1;
 
 int isDirectory(char* path);
 int isDirectoryEmpty(char* path);
@@ -119,7 +121,68 @@ int help(char* projectPath){
 }
 
 int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
-	printf("initialMimic: %s\n", initialMimic);
+	// printf("fpath: %s\n", fpath);
+	// return 0;
+	// printf("initialMimic: %s\n", initialMimic);
+
+	// printf("here\n");
+	//
+	// //Get the base folder from the source
+	// char initialSourceCopy[strlen(fpath)];
+	// initialSourceCopy[0] = '\0';
+	// strcat(initialSourceCopy, initialSource);
+	// char* sourceBaseFolder;
+	// sourceBaseFolder = basename(initialSourceCopy);
+	// printf("sourceBaseFolder: %s\n", sourceBaseFolder);
+	// // return 0;
+	//
+	// char* sourceBasePlus;
+	// sourceBasePlus = strstr(fpath, sourceBaseFolder);
+	// printf("sourceBasePlus: %s\n", sourceBasePlus);
+	// // strcat(sourceBasePlus, strstr(sourceBaseFolder, fpath));
+	// return 0;
+	// //
+	// // // sourceBasePlus = strstr(sourceBaseFolder, fpath);
+	// // printf("sourceBase plus everything after: %s\n", sourceBasePlus);
+	// // printf("Got here\n");
+	// // // sourceBasePlus[0] = '\0'	;
+	// // return 0;
+	//
+	//
+	// // if copying into existing directory
+	// // just source folder into dest and keep contents in source
+	// if(isDirectory(initialMimic)){
+	//
+	//
+	// }
+	// // Copying contents into new directory
+	// // bascially just rename source to dest
+	// else if(!isDirectory(initialMimic)){
+	//
+	//
+	// }
+	//
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	// Making arrays to hold the paths of the source and destination
 	// The final dest path is the location initally given to mimic to plus the
@@ -134,121 +197,205 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	// printf("before dirname Initial mimic: %s\n", initialMimic);
 	dirname(dirnameInitialMimic);
 	// printf("after dirname Initial mimic: %s\n", initialMimic);
+	//Get the base folder from the source
+	char initialSourceCopy[strlen(fpath)];
+	initialSourceCopy[0] = '\0';
+	strcat(initialSourceCopy, initialSource);
+	char* sourceBaseFolder;
+	sourceBaseFolder = basename(initialSourceCopy);
+	// printf("sourceBaseFolder: %s\n", sourceBaseFolder);
+	// return 0;
+
+	char* sourceBasePlus;
+	sourceBasePlus = strstr(fpath, sourceBaseFolder);
+	// printf("sourceBasePlus: %s\n", sourceBasePlus);
+	// strcat(sourceBasePlus, strstr(sourceBaseFolder, fpath));
+	// return 0;
 
 	//If the source path is a directory
 	if(isDirectory(initialMimic)){
-		// printf("fpath: %s\n", fpath);
-		// printf("IS DIR\n");
-		strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
-		strcat(finalDestPath, containingFolder); //adds the containingFolder to the final dest path
-		strcat(finalDestPath, "/"); //Adds a slash to add following
-		if(!isMimicIntoNewDir)
-			strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+		if(initialDirExists){
+			printf("InitialDir Exists\n");
+			// finalDestPath = initialMimic + sourceBaseFolder + fpath after sourceBaseFolder
+			strcat(finalDestPath, initialMimic);
+			strcat(finalDestPath, "/");
+			strcat(finalDestPath, sourceBasePlus);
+			printf("finalDestPath: %s\n", finalDestPath);
+			return 0;
+		}
+		else if (!initialDirExists) {
+			printf("InitialDir Does Not Exist\n");
+			printf("sourceBase: %s\n", sourceBaseFolder);
+			// finalDestPath = initialMimic + fpath after sourceBaseFolder
+			strcat(finalDestPath, initialMimic);
+			// strcat(finalDestPath, "/");
+			char fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)];
+			for(int i = strlen(initialSource); i < strlen(fpath); ++i){
+					fPathAfterSourceBase[i - strlen(initialSource)] = fpath[i];
+			}
+			fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)] = '\0';
+			strcat(finalDestPath, fPathAfterSourceBase);
+			printf("finalDestPath: %s\n", finalDestPath);
+			return 0;
+		}
+
+	}
+	else if(!isDirectory(initialMimic) || !strcmp(initialMimic, dirnameInitialMimic)){
+		initialDirExists = 0;
+		if(isDirectory(dirnameInitialMimic) || !strcmp(initialMimic, dirnameInitialMimic)){
+			mkdirz(initialMimic, 0);
+			return 0;
+		}
 		else{
-				printf("sourcepath: %s\n", fpath);
-				printf("finalDestPath: %s\n", finalDestPath);
-			// printf("INTO ELSE\n");
-			char basenameInitialMimic[MAX_FILENAME];
-			basenameInitialMimic[0] = '\0';
-			strcat(basenameInitialMimic, initialMimic);
-			basename(basenameInitialMimic);
-			int slashLocation = 0;
-			for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
-				if(fpath[slashLocation] == '/')
-					break;
-			}
-			if(slashLocation == strlen(fpath)){
-				strcat(finalDestPath, basenameInitialMimic);
-			}
-			else{
-				char fpathAfterFirstSlash[strlen(fpath) - slashLocation - 1];
-				fpathAfterFirstSlash[0] = '\0';
-				for(int i = slashLocation + 1; i < strlen(fpath); ++i){
-					fpathAfterFirstSlash[i-(slashLocation+1)] = fpath[i];
-					// printf("fpath[%i]: %c\n", i, fpath[i]);
-				}
-				fpathAfterFirstSlash[strlen(fpath) - slashLocation - 1] = '\0';
-				printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
-				// fpathAfterFirstSlash[strlen(fpath)] = '\0';
-				// printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
-				char newFPath[MAX_FILENAME];
-				newFPath[0] = '\0';
-				strcat(newFPath, basenameInitialMimic);
-				strcat(newFPath, "/");
-				strcat(newFPath, fpathAfterFirstSlash);
-				strncpy(finalDestPath, newFPath, strlen(newFPath));
-				finalDestPath[strlen(newFPath)] = '\0';
-				printf("newFPath: %s\n", newFPath);
-				// strcat(newFPath, fpathAfterFirstSlash);
-				// strcat(finalDestPath, fpathAfterFirstSlash);
-				printf("finalDestPath: %s\n", finalDestPath);
-			}
+			printf("ERROR: parent is not a directory\n");
 		}
 	}
 
-	//Or if the parent of the source path is a directory
-	else if(isDirectory(dirnameInitialMimic)){
-		// printf("191: \tinitialMimic: %s\n", initialMimic);
-		isMimicIntoNewDir = 1;
-		mkdirz(initialMimic, 0);
-		return 0;
 
-		// The basename of the destination (the folder that does not exist)
-		// replaces the name of the base folder from the source
-		// Below stores the basename of initialMimic in basenameInitialMimic
-		// char basenameInitialMimic[strlen(initialMimic)];
-		// basenameInitialMimic[0] = '\0';
-		// strcat(basenameInitialMimic, initialMimic);
-		// basename(basenameInitialMimic);
-		// int slashLocation = 0;
-		// for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
-		// 	if(fpath[slashLocation] == '/')
-		// 		break;
-		// }
-		// if(slashLocation == strlen(fpath))
-		// 	printf("NO SLASH\n");
-		// else{
-		// 	printf("Slash location: %i\n", slashLocation);
-		// 	for(int i = 0; i < strlen(basenameInitialMimic); ++i){
-		//
-		// 	}
-		//
-		// }
-	}
-	else if(!strcmp(dirnameInitialMimic, initialMimic)){
-		isMimicIntoNewDir = 1;
-		mkdirz(dirnameInitialMimic, 0);
-		return 0;
-	}
-	else{
-		// printf("dirnameInitialMimic: %s\n", dirnameInitialMimic);
-		printf("ERROR: directory '%s' is not a valid directory(parent does not exist)\n");
-		return -1;
-	}
 
-	// If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
-	if(tflag == FTW_D){ //fpath points to a directory
-		// Gets the stat of the source path so we can apply the same permissions to the final destination
-		struct stat sourceStat;
-		stat(fpath, &sourceStat);
-		if(mkdir(finalDestPath, sourceStat.st_mode) == -1){ //Creates a new directory with same permissions as fpath
-			// Ignore warnings if the directory already exists
-			if(errno != EEXIST){
-				printf("%s\n", strerror(errno));
-				return -1;
-			}
-		}
-	}
 
-	//If fpath points to a file, then that file is copied
-	else if(tflag == FTW_F){ //fpath points to a file
-		if(copyFile(fpath, finalDestPath) == -1){
-			if(copyFile(fpath, dirname(finalDestPath)) == -1){
-					printf("ERROR copying file\n");
-					return -1;
-			}
-		}
-	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		// ---------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------------------------------------------------------
+		// ---------------------------------------------------------------------------------------------------------------------------
+
+	// 	// printf("fpath: %s\n", fpath);
+	// 	// printf("IS DIR\n");
+	// 	strcat(containingFolder, initialMimic); //Copies initial mimic to containingFolder
+	// 	strcat(finalDestPath, containingFolder); //adds the containingFolder to the final dest path
+	// 	strcat(finalDestPath, "/"); //Adds a slash to add following
+	// 	// if(!isMimicIntoNewDir)
+	// 	// 	strcat(finalDestPath, fpath); //Adds the path of the file/folder to end of containing folder
+	// 	// else{
+	// 			printf("sourcepath: %s\n", fpath);
+	// 			printf("finalDestPath: %s\n", finalDestPath);
+	// 		// printf("INTO ELSE\n");
+	// 		char basenameInitialMimic[MAX_FILENAME];
+	// 		basenameInitialMimic[0] = '\0';
+	// 		strcat(basenameInitialMimic, initialMimic);
+	// 		basename(basenameInitialMimic);
+	// 		int slashLocation = 0;
+	// 		for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
+	// 			if(fpath[slashLocation] == '/')
+	// 				break;
+	// 		}
+	// 		if(slashLocation == strlen(fpath)){
+	// 			strcat(finalDestPath, basenameInitialMimic);
+	// 		}
+	// 		else{
+	// 			char fpathAfterFirstSlash[strlen(fpath) - slashLocation - 1];
+	// 			fpathAfterFirstSlash[0] = '\0';
+	// 			for(int i = slashLocation + 1; i < strlen(fpath); ++i){
+	// 				fpathAfterFirstSlash[i-(slashLocation+1)] = fpath[i];
+	// 				// printf("fpath[%i]: %c\n", i, fpath[i]);
+	// 			}
+	// 			fpathAfterFirstSlash[strlen(fpath) - slashLocation - 1] = '\0';
+	// 			printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
+	// 			// fpathAfterFirstSlash[strlen(fpath)] = '\0';
+	// 			// printf("fpathAfterFirstSlash: %s\n", fpathAfterFirstSlash);
+	// 			char newFPath[MAX_FILENAME];
+	// 			newFPath[0] = '\0';
+	// 			strcat(newFPath, basenameInitialMimic);
+	// 			strcat(newFPath, "/");
+	// 			strcat(newFPath, fpathAfterFirstSlash);
+	// 			strncpy(finalDestPath, newFPath, strlen(newFPath));
+	// 			finalDestPath[strlen(newFPath)] = '\0';
+	// 			printf("newFPath: %s\n", newFPath);
+	// 			// strcat(newFPath, fpathAfterFirstSlash);
+	// 			// strcat(finalDestPath, fpathAfterFirstSlash);
+	// 			printf("finalDestPath: %s\n", finalDestPath);
+	// 		}
+	// 	}
+	// // }
+	//
+	//
+	// //Or if the parent of the source path is a directory
+	// else if(isDirectory(dirnameInitialMimic)){
+	// 	// printf("191: \tinitialMimic: %s\n", initialMimic);
+	// 	isMimicIntoNewDir = 1;
+	// 	mkdirz(initialMimic, 0);
+	// 	return 0;
+	//
+	// 	// The basename of the destination (the folder that does not exist)
+	// 	// replaces the name of the base folder from the source
+	// 	// Below stores the basename of initialMimic in basenameInitialMimic
+	// 	// char basenameInitialMimic[strlen(initialMimic)];
+	// 	// basenameInitialMimic[0] = '\0';
+	// 	// strcat(basenameInitialMimic, initialMimic);
+	// 	// basename(basenameInitialMimic);
+	// 	// int slashLocation = 0;
+	// 	// for(slashLocation = 0; slashLocation < strlen(fpath); ++slashLocation){
+	// 	// 	if(fpath[slashLocation] == '/')
+	// 	// 		break;
+	// 	// }
+	// 	// if(slashLocation == strlen(fpath))
+	// 	// 	printf("NO SLASH\n");
+	// 	// else{
+	// 	// 	printf("Slash location: %i\n", slashLocation);
+	// 	// 	for(int i = 0; i < strlen(basenameInitialMimic); ++i){
+	// 	//
+	// 	// 	}
+	// 	//
+	// 	// }
+	// }
+	// else if(!strcmp(dirnameInitialMimic, initialMimic)){
+	// 	isMimicIntoNewDir = 1;
+	// 	mkdirz(dirnameInitialMimic, 0);
+	// 	return 0;
+	// }
+	// else{
+	// 	// printf("dirnameInitialMimic: %s\n", dirnameInitialMimic);
+	// 	printf("ERROR: directory '%s' is not a valid directory(parent does not exist)\n");
+	// 	return -1;
+	// }
+	//
+	// // If fpath(source path) points to a directory, then a new directory is created with the same name as the old one
+	// if(tflag == FTW_D){ //fpath points to a directory
+	// 	// Gets the stat of the source path so we can apply the same permissions to the final destination
+	// 	struct stat sourceStat;
+	// 	stat(fpath, &sourceStat);
+	// 	if(mkdir(finalDestPath, sourceStat.st_mode) == -1){ //Creates a new directory with same permissions as fpath
+	// 		// Ignore warnings if the directory already exists
+	// 		if(errno != EEXIST){
+	// 			printf("%s\n", strerror(errno));
+	// 			return -1;
+	// 		}
+	// 	}
+	// }
+	//
+	// //If fpath points to a file, then that file is copied
+	// else if(tflag == FTW_F){ //fpath points to a file
+	// 	if(copyFile(fpath, finalDestPath) == -1){
+	// 		if(copyFile(fpath, dirname(finalDestPath)) == -1){
+	// 				printf("ERROR copying file\n");
+	// 				return -1;
+	// 		}
+	// 	}
+	// }
 
 	// 	//Flags and permssions for opening the file descriptors
 	//   unsigned int sourceFlags = O_RDONLY;
@@ -294,6 +441,8 @@ int mimic(char** inputs, int numberOfInputs){
 		else if(sourcePath[0] == '\0'){
 			strncpy(sourcePath, inputs[i], strlen(inputs[i]));
 			sourcePath[strlen(inputs[i])] = '\0';
+			initialSource[0] = '\0';
+			strcat(initialSource, sourcePath);
 		}
 		else{
 			strncpy(destPath, inputs[i], strlen(inputs[i]));
@@ -314,6 +463,7 @@ int mimic(char** inputs, int numberOfInputs){
 			if(nftw(sourcePath, recursiveMimicMorph, 20, 0) == 0){
 				initialMimic[0] = '\0';
 				isMimicIntoNewDir = 0;
+				initialDirExists = 1;
 				return 0;
 			}
 		}
