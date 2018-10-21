@@ -514,11 +514,45 @@ int mimic(char** inputs, int numberOfInputs){
 
 		// If command is morph, remove all files contained in sourcepath
 		if(!strcmp(inputs[0], "morph")){
-			printf("Morph\n");
 			// Calls eraseAfterMorph function on every file in sourcePath
 			// FTW_DEPTH flag set to list all of the files inside a directory before the directory
 			// Necessary because you cannot remove a non-empty directory
 			nftw(sourcePath, eraseAfterMorph, 20, FTW_DEPTH);
+		}
+	}
+
+	else{
+		// Create a copy of sourcePath to feed into basename
+		char sourceBaseName[strlen(sourcePath)];
+		strncpy(sourceBaseName, sourcePath, strlen(sourcePath));
+		sourceBaseName[strlen(sourcePath)] = '\0';
+		// Must store result of basename in pointer
+		char* sourceBaseNamePointer = basename(sourceBaseName);
+		// Copy sourceBaseNamePointer into sourceBaseName
+		strncpy(sourceBaseName, sourceBaseNamePointer, strlen(sourceBaseNamePointer));
+		sourceBaseName[strlen(sourceBaseNamePointer)] = '\0'; // Must terminate string after strncpy
+
+		//Creates and initializes what will be the final destination path
+		char finalDestPath[strlen(destPath) + strlen(initialSource)];
+		finalDestPath[0] = '\0'; //Initialize with terminating character
+		//If the destPath is a directory, the finalDestPath will be destPath + / + sourceBaseName
+		if(isDirectory(destPath)){
+			strcat(finalDestPath, destPath);
+			strcat(finalDestPath, "/");
+			strcat(finalDestPath, sourceBaseName);
+		}
+		//If destPath is not a directory, it must be pointing to a file, so finalDestPath = destPath
+		else{
+			strcat(finalDestPath, destPath);
+		}
+
+		//Attempt to copy the file
+		if(copyFile(sourcePath, finalDestPath) == -1)
+				return -1;
+
+		//If the command was morph, delete the source file
+		if(!strcmp(inputs[0], "morph")){
+			erase(sourcePath);
 		}
 	}
 
@@ -654,7 +688,16 @@ int copyFile(char* sourcePath, char* destPath){
 
 	// Opens the paths given as file descriptors
   int sourceFileDescriptor = open(sourcePath, sourceFlags);
+	if(sourceFileDescriptor == -1){
+		printf("error opening source\n");
+		return -1;
+	}
   int destFileDescriptor = open(destPath, destFlags, destPermissions);
+	if(destFileDescriptor == -1){
+		printf("error opening destination\n");
+		return -1;
+	}
+
 
 	// Attempts to copy file using the destpath given
   ssize_t num_read;
@@ -662,6 +705,7 @@ int copyFile(char* sourcePath, char* destPath){
   while((num_read = read(sourceFileDescriptor, buf, MAX_BUFFER)) > 0){
     if(write(destFileDescriptor, buf, num_read) != num_read){
       printf("ERROR during writing\n");
+			return -1;
     }
   }
 	return num_read;
