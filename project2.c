@@ -36,7 +36,6 @@ int isDirectoryEmpty(char* path);
 
 // Clears terminal "system clear"
 int wipe(){
-	// system("clear");
 
 	int childPID;
 	switch (childPID = fork()) {
@@ -55,20 +54,85 @@ int wipe(){
 
 // Lists files and directories in target directory
 // If no directory is specified then prints files and directories in current directory
-int filez(int argNum, char** target){
+int filez(int argNum, char** args){
 
-	char* command[argNum + 1];
-	for(int i = 0; i < argNum; ++i)
-		command[i] = target[i];
-	command[argNum] = "-1";
-	command[argNum + 1] = NULL;
+	//Variables initialized to store file names and modes for IO redirection
+	char outFile[MAX_FILENAME];
+	outFile[0] = '\0';
+	char outMode[2];
+	outMode[0] = '\0';
+	int outFileProvided = 0;
+
+	char inFile[MAX_FILENAME];
+	inFile[0] = '\0';
+	char inMode[2];
+	inMode[0] = '\0';
+	int inFileProvided = 0;
+
+	//Adds additional provided args to arguments list
+	char* arguments[MAX_BUFFER];
+	arguments[0] = args[0]; // 1st command of args list must be the command to run
+	int argumentsSize = 1;
+	for(int i = 1; i < argNum; ++i){
+		//Set stdin to args[i + 1]
+		if(!strcmp(args[i], "<")){
+			//Mode = "r" (O_RDONLY)
+			strcat(inMode, "r");
+			//File path to replace stdin is stored in inFile
+			strcat(inFile, args[i + 1]);
+			//To skip next file, because the file after '<' is the name of the file to replace stdout
+			i = i + 2;
+			//Set new stdin file flag
+			inFileProvided = 1;
+			//Needed so program does not break, IDK why
+			if(i >= argNum)
+				break;
+		}
+		//Set stdout to args[i + 1], created if it doesn't exist, either truncated or appended to depending on options
+		if(!strcmp(args[i], ">") || !strcmp(args[i], ">>")){
+			//File is truncated
+			//Mode = "w" (O_WRONLY|O_CREAT|O_TRUNC)
+			if(!strcmp(args[i], ">"))
+				strcat(outMode,"w");
+			//File is appended to
+			//Mode = "a" (O_WRONLY|O_CREAT|O_APPEND)
+			if(!strcmp(args[i], ">>"))
+				strcat(outMode, "a");
+			//File path to replace stdout is stored in outFile
+			strcat(outFile, args[i + 1]);
+			//To skip next file, because the file after '>' or '>>' is the name of the file to replace stdout
+			i = i + 2;
+			//Set new stdout file flag
+			outFileProvided = 1;
+			//Needed so program does not break, IDK why
+			if(i >= argNum)
+				break;
+		}
+		//Provided argument is not part of IO redirection, therefore continue like normal
+		else{
+			//Must specify argumentsSize because may skip some "i's" because of redirection
+			arguments[argumentsSize] = args[i];
+			++argumentsSize;
+		}
+	}
+	arguments[argumentsSize] = "-1"; // Add '-1' because filez = 'ls -1'
+	arguments[argumentsSize + 1] = NULL; //Final entry in pointer passed to exec must be NULL
 
 	int childPID;
 	switch (childPID = fork()) {
 		case -1:
 			printf("Error\n");
 		case 0:
-			execvp("ls", command);
+			//If stdout or stdin is being redirected, associate stream with that file
+			if(outFileProvided){
+				if(freopen(outFile, outMode, stdout) == NULL)
+					fprintf(stderr, "freopen ERROR: %s\n", strerror(errno));
+			}
+			if(inFileProvided){
+				if(freopen(inFile, inMode, stdin) == NULL)
+					fprintf(stderr, "freopen ERROR: %s\n", strerror(errno));
+			}
+			execvp("ls", arguments);
 			printf("Syserr\n");
 			return 0;
 		default:
@@ -76,23 +140,6 @@ int filez(int argNum, char** target){
 	}
 	kill(childPID, SIGTERM);
 	return 0;
-
-	// char* command;
-	//
-	// if(target == NULL)
-	// 	command = "ls -1";
-	// else{
-	// 	command = "ls -1 ";
-	// 	size_t spaceNeeded = strlen(command) + strlen(target) + 1;
-	// 	char* spaceNeededStr = (char*)(malloc)(spaceNeeded * sizeof(char));
-	// 	command = strcat(spaceNeededStr, command);
-	// 	command = strcat(command, target);
-	// 	command[spaceNeeded] = '\0';
-	// }
-	//
-	// printf("\t%s\n", command);
-	//
-	// return system(command);
 }
 
 // Prints program's README
@@ -120,6 +167,7 @@ int help(char* projectPath){
 	return 0;
 }
 
+// Function called by nftw after mimic or morph on a directory
 int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
 
 	// Making arrays to hold the paths of the source and destination
@@ -131,51 +179,46 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	finalDestPath[0] = '\0';
 	containingFolder[0] = '\0';
 	dirnameInitialMimic[0] = '\0';
+
+	//Store the dirname of the destination in dirnameInitialMimic
 	strcat(dirnameInitialMimic, initialMimic);
-	// printf("before dirname Initial mimic: %s\n", initialMimic);
 	dirname(dirnameInitialMimic);
-	// printf("after dirname Initial mimic: %s\n", initialMimic);
+
 	//Get the base folder from the source
 	char initialSourceCopy[strlen(fpath)];
 	initialSourceCopy[0] = '\0';
 	strcat(initialSourceCopy, initialSource);
+	//Store the basename of the initial source in sourceBaseFolder
 	char* sourceBaseFolder;
 	sourceBaseFolder = basename(initialSourceCopy);
-	// printf("sourceBaseFolder: %s\n", sourceBaseFolder);
-	// return 0;
 
+	//Get everything after the basename of the initial source and store it in sourceBasePlus
+	//This is necessary for nested folders
 	char* sourceBasePlus;
 	sourceBasePlus = strstr(fpath, sourceBaseFolder);
-	// printf("sourceBasePlus: %s\n", sourceBasePlus);
-	// strcat(sourceBasePlus, strstr(sourceBaseFolder, fpath));
-	// return 0;
 
 	//If the source path is a directory
 	if(isDirectory(initialMimic)){
-		if(initialDirExists){
-			// printf("InitialDir Exists\n");
-			// finalDestPath = initialMimic + sourceBaseFolder + fpath after sourceBaseFolder
+		//The final destination differs on whether or not the destination existed before the morph/mimic call
+		if(initialDirExists){ // finalDestPath = initialMimic + sourceBaseFolder + fpath after sourceBaseFolder
 			strcat(finalDestPath, initialMimic);
 			strcat(finalDestPath, "/");
 			strcat(finalDestPath, sourceBasePlus);
-			// printf("finalDestPath: %s\n", finalDestPath);
 		}
-		else if (!initialDirExists) {
-			// printf("InitialDir Does Not Exist\n");
-			// printf("sourceBase: %s\n", sourceBaseFolder);
-			// finalDestPath = initialMimic + fpath after sourceBaseFolder
+		else if (!initialDirExists) { // finalDestPath = initialMimic + fpath after sourceBaseFolder
 			strcat(finalDestPath, initialMimic);
-			// strcat(finalDestPath, "/");
+			//Must remove sourceBaseFolder fpath to get correct destination
 			char fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)];
 			for(int i = strlen(initialSource); i < strlen(fpath); ++i){
 					fPathAfterSourceBase[i - strlen(initialSource)] = fpath[i];
 			}
 			fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)] = '\0';
 			strcat(finalDestPath, fPathAfterSourceBase);
-			// printf("finalDestPath: %s\n", finalDestPath);
 		}
 
 	}
+	//If the destination directory does not exist or is the same as the dirname of the destination dirctory (implying that the destination directory is in the CWD)
+	//Create the directory and set the initialDirExists flag to false if the parent directory exists
 	else if(!isDirectory(initialMimic) || !strcmp(initialMimic, dirnameInitialMimic)){
 		initialDirExists = 0;
 		if(isDirectory(dirnameInitialMimic) || !strcmp(initialMimic, dirnameInitialMimic)){
@@ -183,27 +226,25 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 			return 0;
 		}
 		else{
-			printf("ERROR: parent is not a directory\n");
+			fprintf(stderr, "ERROR: parent is not a directory\n");
 		}
 	}
 
-	//If source(fpath) is a file, copy the files to the destination(finalDestPath)
+	//If source(fpath) is a file, copy the file to the destination(finalDestPath)
 	if(tflag == FTW_F){ //fpath points to a file
-		// printf("\tfpath is a file\n");
 		if(copyFile(fpath, finalDestPath) == -1){
-				printf("ERROR copying file\n");
+				fprintf(stderr, "ERROR copying file\n");
 				return -1;
 		}
 	}
 
 	//If source(fpath) is a directory, create the directory as finalDestPath
 	else if(tflag == FTW_D){ //fpath points to a directory
-		// printf("\tfpath is a directory\n");
 		// Gets the stat of the source path so we can apply the same permissions to the final destination
 		struct stat sourceStat;
 		stat(fpath, &sourceStat);
 		if(mkdirz(finalDestPath, sourceStat.st_mode) == -1){ //Creates a new directory with same permissions as fpath
-				printf("%s\n", strerror(errno));
+				fprintf(stderr, "%s\n", strerror(errno));
 				return -1;
 		}
 	}
@@ -211,6 +252,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	return 0;
 }
 
+// Function called by nftw() to delete contents (after a morph call)
 int eraseAfterMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf){
 		// If fpath is file, erase that file
 		if(tflag == FTW_F){
@@ -332,39 +374,6 @@ int erase(char* path){
 	return 0;
 }
 
-// Copies files from sourcePath to destPath
-int morph(char* sourcePath, char* destPath){
-
-	// Determines whether destPath points to directory or not
-	struct stat destPathBuf;
-	stat(destPath, &destPathBuf);
-	int isDestDirectory = S_ISDIR(destPathBuf.st_mode);
-
-	// If destPath points to directory, the filename of the file pointed to by sourcePath (found by basename function)
-	// is appended to destPath, to preserve filename after move
-	char* slash = "/";
-	if(isDestDirectory != 0){
-		// http://man7.org/linux/man-pages/man3/basename.3.html
-		char* sourceBaseName = basename(sourcePath);
-		size_t destPathWithFileNameSize = strlen(destPath) + strlen(slash) + strlen(sourceBaseName);
-		char* destPathWithFileName = (char*)(malloc)(destPathWithFileNameSize * sizeof(char));
-		destPathWithFileName = strcat(destPathWithFileName, destPath);
-		destPathWithFileName = strcat(destPathWithFileName, slash);
-		destPathWithFileName = strcat(destPathWithFileName, sourceBaseName);
-		destPath = destPathWithFileName;
-
-	}
-
-	// Rename function moves the file at sourcePath to destPath by renaming it starting at the root directory
-	// http://man7.org/linux/man-pages/man2/rename.2.html
-	if(rename(sourcePath, destPath) == -1){
-		fprintf(stderr, "ERROR: %s\n", strerror(errno));
-		return -1;
-	}
-
-	return 0;
-}
-
 // Changes the current working dirctory if an input is provided and updates the PWD environment variable
 // If no input is provided, prints current working directory to stdout
 int mychdir(char* input){
@@ -387,7 +396,9 @@ int mychdir(char* input){
 	return 0;
 }
 
+//Creates a directory
 int mkdirz(char* path, mode_t mode){
+	//If creating brand new directory, initialize with permissions RWX
 	if(mode == 0){
 		if(mkdir(path, 0777) == -1){
 			fprintf(stderr, "MKDIRZ ERROR: %s\n", strerror(errno));
@@ -396,6 +407,7 @@ int mkdirz(char* path, mode_t mode){
 		else
 			return 0;
 	}
+	//If creating a new directory as a copy of another one, use permissions of old
 	else
 		if(mkdir(path, mode) == -1){
 			fprintf(stderr, "MKDIRZ ERROR: %s\n", strerror(errno));
@@ -405,7 +417,9 @@ int mkdirz(char* path, mode_t mode){
 			return 0;
 }
 
+//Removes and empty directory
 int rmdirz(char* path){
+	// http://man7.org/linux/man-pages/man2/rmdir.2.html
 	if(rmdir(path) == -1){
 		fprintf(stderr, "RMDIRZ ERROR: %s\n", strerror(errno));
 		return -1;
@@ -423,24 +437,28 @@ int isDirectory(char* path){
   return S_ISDIR(statbuf.st_mode);
 }
 
+//Determines whether a directory is empty or not
 int isDirectoryEmpty(char *dirname) {
 	int n = 0;
-  struct dirent *d;
+  struct dirent *d; //Directory object that stores directory properties
   DIR *dir = opendir(dirname);
   if (dir == NULL) //Not a directory or doesn't exist
     return 1;
-  while ((d = readdir(dir)) != NULL) {
+  while ((d = readdir(dir)) != NULL) { //Reads info inside directory
     ++n;
+		//If there is more than 2 entries in the directory, then it's not empty
+		//2 because of '.'(current directory) and '..'(parent directory)
     if(n > 2)
       break;
   }
-  closedir(dir);
+  closedir(dir); //Close the directory
   if (n <= 2) //Directory Empty
     return 1;
   else
     return 0;
 }
 
+//Copies file from sourcePath to destPath
 int copyFile(char* sourcePath, char* destPath){
   // Sets flags and permissions for the files for future use
   unsigned int sourceFlags = O_RDONLY; //Opens source as read only
@@ -452,11 +470,11 @@ int copyFile(char* sourcePath, char* destPath){
   int destFileDescriptor = open(destPath, destFlags, destPermissions);
 	// If there was an error opening the files, throw error
 	if(sourceFileDescriptor == -1){
-		printf("error opening source\n");
+		fprintf(stderr, "error opening source: %s\n", sourcePath);
 		return -1;
 	}
 	if(destFileDescriptor == -1){
-		printf("error opening destination\n");
+		fprintf(stderr, "error opening destination: %s\n", destPath);
 		return -1;
 	}
 
