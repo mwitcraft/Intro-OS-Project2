@@ -25,14 +25,24 @@ extern char** environ;
 
 char initialDestination[MAX_BUFFER];
 char initialSource[MAX_BUFFER];
-int isRecursive = 0;
-int inFTW = 0;
 int isMimicIntoNewDir = 0;
-int isMorph = 0;
 int initialDirExists = 1;
 
 int isDirectory(char* path);
 int isDirectoryEmpty(char* path);
+int wipe();
+int filez(int argNum, char** args);
+int help(char* projectPath);
+int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf);
+int eraseAfterMorph(const char *fpath, const struct stat *sb, int tflag,struct FTW *ftwbuf);
+int mimic(char** inputs, int numberOfInputs);
+int erase(const char* path);
+int mychdir(char* input);
+int mkdirz(char* path, mode_t mode);
+int rmdirz(const char* path);
+int isDirectory(char* path);
+int isDirectoryEmpty(char *dirname);
+int copyFile(const char* sourcePath, char* destPath);
 
 // Clears terminal like "system clear"
 int wipe(){
@@ -265,8 +275,6 @@ int eraseAfterMorph(const char *fpath, const struct stat *sb, int tflag,struct F
 		return 0;
 }
 
-
-
 // Copies file from sourcePath to destPath
 int mimic(char** inputs, int numberOfInputs){
 	// Creates char arrays to hold the source and destination paths
@@ -364,7 +372,7 @@ int mimic(char** inputs, int numberOfInputs){
 }
 
 // Removes file pointed to by path
-int erase(char* path){
+int erase(const char* path){
 	// http://man7.org/linux/man-pages/man3/remove.3.html
 	if(remove(path) == -1){
 		fprintf(stderr, "ERROR: %s\n", strerror(errno));
@@ -418,7 +426,7 @@ int mkdirz(char* path, mode_t mode){
 }
 
 //Removes and empty directory
-int rmdirz(char* path){
+int rmdirz(const char* path){
 	// http://man7.org/linux/man-pages/man2/rmdir.2.html
 	if(rmdir(path) == -1){
 		fprintf(stderr, "RMDIRZ ERROR: %s\n", strerror(errno));
@@ -459,7 +467,7 @@ int isDirectoryEmpty(char *dirname) {
 }
 
 //Copies file from sourcePath to destPath
-int copyFile(char* sourcePath, char* destPath){
+int copyFile(const char* sourcePath, char* destPath){
   // Sets flags and permissions for the files for future use
   unsigned int sourceFlags = O_RDONLY; //Opens source as read only
   unsigned int destFlags = O_CREAT | O_WRONLY | O_TRUNC; // Opens destination as write only(WRONLY), and may create the file if it does not exist(CREAT)
