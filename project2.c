@@ -478,7 +478,6 @@ int main(int argc, char** argv){
 
 	char buf[MAX_BUFFER];
 	char* args[MAX_ARGS] ;
-	char** arg;
 	char* prompt = "==>";
 	int argNum;
 
@@ -490,38 +489,21 @@ int main(int argc, char** argv){
 	}
 	path[strlen(pathPnt)] = '\0';
 
-	// // Opens provided batch file and stores it in 'batchFile'
-	// FILE* batchFile = NULL;
-	// int batchProvided = 0;
-	// // If batch file is provided as an argument
-	// if(argc == 2){
-	// 	freopen(argv[1], "r", stdin);
-	// 	// batchFile = fopen(argv[1], "r");
-	// 	// stdin = batchFile;
-	// 	if(batchFile == NULL)
-	// 		fprintf(stderr, "ERROR: %s", strerror(errno));
-	// 	else
-	// 		batchProvided = 1;
-	// }
-	// // If batch file is piped in
-	// else if(argc == 1){
-	// 	batchFile = stdin;
-	// }
-	// else
-	// 	fprintf(stderr, "ERROR: Unexpected arguments");
-
-	int batchProvided = 0;
+	//If an argument is supplied on program startup, then that argument is
+	//associated with stdin
+	int batchProvided = 0; //Flag to let program know batchfile was provided
 	if(argc == 2){
-		freopen(argv[1], "r", stdin);
-		batchProvided = 1;
+		if(freopen(argv[1], "r", stdin) != NULL)
+			batchProvided = 1;
+		else
+			fprintf(stderr, "freopen() ERROR: %s\n", strerror(errno));
 	}
 
 	// Loops until end of stdin
 	while(!feof(stdin)){
 
-		/* Prints prompt out */
+		//Prints out prompt, prepended with the current working directory
 		printf("%s%s", getenv("PWD"), prompt);
-		// fputs(prompt, stdout);
 
 		/* Waits for input after prompt and stores the input with max size of MAX_BUFFER in buf */
 		if(fgets(buf, MAX_BUFFER, stdin)){
@@ -535,23 +517,11 @@ int main(int argc, char** argv){
 			char* tkn = strtok(fullInput, SEPARATORS);
 			for(int i = 0; tkn != NULL; ++i){
 				++argNum;
-				if(!strcmp(tkn, "-r")){
-					isRecursive = 1;
-				}
 				args[i] = tkn;
 				tkn = strtok(NULL, SEPARATORS);
 			}
 
-			// Prints next to prompt the input from provided batch file
-			// Currently buggy, as when batch file is not provided, it prints out on a new line the
-			// command entered
-			// if(batchFile != NULL){
-			// 	for(int i = 0; i < argNum; ++i){
-			// 			printf("%s ", args[i]);
-			// 	}
-			// 	printf("\n");
-			// }
-
+			//If a batchfile has been provided, prints out the commands after the prompt
 			if(batchProvided){
 				for(int i = 0; i < argNum; ++i)
 					printf("%s ", args[i]);
@@ -585,16 +555,8 @@ int main(int argc, char** argv){
 
 			// Prints files according to 'filez' function
 			else if(!strcmp(args[0], "filez")){
-				args[0] = argv[0];
+				args[0] = argv[0]; //Gives name of program as first arguments to filez
 				filez(argNum, args);
-				// if(argNum > 2)
-				// 	fprintf(stderr, "ERROR: Too many arguments\n");
-				// else{
-				// 	if(argNum == 1)
-				// 		filez(NULL);
-				// 	if(argNum ==2)
-				// 		filez(args[1]);
-				// }
 			}
 
 			 // Prints environment variables to stdout
@@ -608,11 +570,11 @@ int main(int argc, char** argv){
 						printf("%s\n", *env);
 						*env++;
 					}
-
 				}
 			}
 
 			// Prints provided arguments to stdout
+			// Basically echo
 			else if(!strcmp(args[0], "ditto")){
 				if(argNum != 1){
 					for(int i = 1; i < argNum; ++i){
@@ -630,19 +592,9 @@ int main(int argc, char** argv){
 					help(path);
 			}
 
-			// Copies file pointed to by 1st argument to 2nd argument
+			// Copies file or destination pointed to by 1st argument to 2nd argument
 			else if(!strcmp(args[0], "mimic")){
-				// char* sorce = args[1];
-				// char* dest = args[2];
-				// source[strlen(source)] = '\0';
-				// dest[strlen(dest)] = '\0';
 				mimic(args, argNum);
-				// if(argNum == 3)
-				// 	mimic(args[1], args[2]);
-				// else if(argNum < 3)
-				// 	fprintf(stderr, "ERROR: Too few arguments\n");
-				// else if(argNum > 3)
-				// 	fprintf(stderr, "ERROR: Too many arguments\n");
 			}
 
 			// Deletes files pointed to by ith argument
@@ -655,16 +607,9 @@ int main(int argc, char** argv){
 
 			}
 
-			// Moves file pointed to by 1st argument to location pointed to by 2nd argument
+			// Moves file or directory pointed to by 1st argument to location pointed to by 2nd argument
 			else if(!strcmp(args[0], "morph")){
 				mimic(args, argNum);
-
-				// if(argNum == 3)
-				// 	morph(args[1], args[2]);
-				// else if(argNum < 3)
-				// 	fprintf(stderr, "ERROR: Too few arguments\n");
-				// else if(argNum > 3)
-				// 	fprintf(stderr, "ERROR: Too many arguments\n");
 			}
 
 			// Changes current working directory if argument is provided
@@ -678,19 +623,23 @@ int main(int argc, char** argv){
 					mychdir(args[1]);
 			}
 
+			//Creates new directory
 			else if(!strcmp(args[0], "mkdirz")){
 				if(argNum < 2)
 					fprintf(stderr, "ERROR: Too few arguments\n");
 				else{
+					//Can create multiple directories with one user call to 'mkdirz'
 					for(int i = 1; i < argNum; ++i)
 						mkdirz(args[i], 0);
 				}
 			}
 
+			//Deletes empty directories
 			else if(!strcmp(args[0], "rmdirz")){
 				if(argNum < 2)
 					fprintf(stderr, "ERROR: Too few arguments\n");
 				else{
+					//Can erase multiple directories with one user call to 'rmdirz'
 					for(int i = 1; i < argNum; ++i)
 						rmdirz(args[i]);
 				}
@@ -773,10 +722,14 @@ int main(int argc, char** argv){
 						printf("Error\n");
 					case 0: //Fork success
 						//If stdout or stdin is being redirected, associate stream with that file
-						if(outFileProvided)
-							freopen(outFile, outMode, stdout);
-						if(inFileProvided)
-							freopen(inFile, inMode, stdin);
+						if(outFileProvided){
+							if(freopen(outFile, outMode, stdout) == NULL)
+								fprintf(stderr, "freopen ERROR: %s\n", strerror(errno));
+						}
+						if(inFileProvided){
+							if(freopen(inFile, inMode, stdin) == NULL)
+								fprintf(stderr, "freopen ERROR: %s\n", strerror(errno));
+						}
 						execvp(command, arguments); //Runs the command with the arguments specified
 						fprintf(stderr, "Syserr with command: %s\n", command);
 						return 0; //Signal end of child process
@@ -790,7 +743,5 @@ int main(int argc, char** argv){
 		}
 
 	}
-
-	// Newline printed for formatting
 	return 0;
 }
