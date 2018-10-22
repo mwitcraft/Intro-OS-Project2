@@ -23,7 +23,7 @@
 
 extern char** environ;
 
-char initialMimic[MAX_BUFFER];
+char initialDestination[MAX_BUFFER];
 char initialSource[MAX_BUFFER];
 int isRecursive = 0;
 int inFTW = 0;
@@ -34,7 +34,7 @@ int initialDirExists = 1;
 int isDirectory(char* path);
 int isDirectoryEmpty(char* path);
 
-// Clears terminal "system clear"
+// Clears terminal like "system clear"
 int wipe(){
 
 	int childPID;
@@ -42,13 +42,13 @@ int wipe(){
 		case -1:
 			printf("Error\n");
 		case 0:
-			execlp("clear", "clear", NULL);
+			execlp("clear", "clear", NULL); //Calls clear
 			printf("Syserr\n");
-			return 0;
+			return 0; //Signals end of child process
 		default:
-			waitpid(childPID, NULL, WUNTRACED);
+			waitpid(childPID, NULL, WUNTRACED); //Parent process waits on child process to be completed
 	}
-	kill(childPID, SIGTERM);
+	kill(childPID, SIGTERM);//Kills the child process on completion
 	return 0;
 }
 
@@ -174,15 +174,15 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	// The final dest path is the location initally given to mimic to plus the
 	// entire path of the source
 	char finalDestPath[MAX_FILENAME];
-	char containingFolder[strlen(initialMimic)];
-	char dirnameInitialMimic[strlen(initialMimic)];
+	char containingFolder[strlen(initialDestination)];
+	char dirnameinitialDestination[strlen(initialDestination)];
 	finalDestPath[0] = '\0';
 	containingFolder[0] = '\0';
-	dirnameInitialMimic[0] = '\0';
+	dirnameinitialDestination[0] = '\0';
 
-	//Store the dirname of the destination in dirnameInitialMimic
-	strcat(dirnameInitialMimic, initialMimic);
-	dirname(dirnameInitialMimic);
+	//Store the dirname of the destination in dirnameinitialDestination
+	strcat(dirnameinitialDestination, initialDestination);
+	dirname(dirnameinitialDestination);
 
 	//Get the base folder from the source
 	char initialSourceCopy[strlen(fpath)];
@@ -198,15 +198,15 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	sourceBasePlus = strstr(fpath, sourceBaseFolder);
 
 	//If the source path is a directory
-	if(isDirectory(initialMimic)){
+	if(isDirectory(initialDestination)){
 		//The final destination differs on whether or not the destination existed before the morph/mimic call
-		if(initialDirExists){ // finalDestPath = initialMimic + sourceBaseFolder + fpath after sourceBaseFolder
-			strcat(finalDestPath, initialMimic);
+		if(initialDirExists){ // finalDestPath = initialDestination + sourceBaseFolder + fpath after sourceBaseFolder
+			strcat(finalDestPath, initialDestination);
 			strcat(finalDestPath, "/");
 			strcat(finalDestPath, sourceBasePlus);
 		}
-		else if (!initialDirExists) { // finalDestPath = initialMimic + fpath after sourceBaseFolder
-			strcat(finalDestPath, initialMimic);
+		else if (!initialDirExists) { // finalDestPath = initialDestination + fpath after sourceBaseFolder
+			strcat(finalDestPath, initialDestination);
 			//Must remove sourceBaseFolder fpath to get correct destination
 			char fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)];
 			for(int i = strlen(initialSource); i < strlen(fpath); ++i){
@@ -219,10 +219,10 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	}
 	//If the destination directory does not exist or is the same as the dirname of the destination dirctory (implying that the destination directory is in the CWD)
 	//Create the directory and set the initialDirExists flag to false if the parent directory exists
-	else if(!isDirectory(initialMimic) || !strcmp(initialMimic, dirnameInitialMimic)){
+	else if(!isDirectory(initialDestination) || !strcmp(initialDestination, dirnameinitialDestination)){
 		initialDirExists = 0;
-		if(isDirectory(dirnameInitialMimic) || !strcmp(initialMimic, dirnameInitialMimic)){
-			mkdirz(initialMimic, 0);
+		if(isDirectory(dirnameinitialDestination) || !strcmp(initialDestination, dirnameinitialDestination)){
+			mkdirz(initialDestination, 0);
 			return 0;
 		}
 		else{
@@ -291,8 +291,8 @@ int mimic(char** inputs, int numberOfInputs){
 		else{
 			strncpy(destPath, inputs[i], strlen(inputs[i]));
 			destPath[strlen(inputs[i])] = '\0';
-			initialMimic[0] = '\0';
-			strcat(initialMimic, destPath);
+			initialDestination[0] = '\0';
+			strcat(initialDestination, destPath);
 		}
 	}
 
@@ -303,7 +303,7 @@ int mimic(char** inputs, int numberOfInputs){
 			// Calls the recursiveMimicMorph function on every file/directory in sourcePath
 			if(nftw(sourcePath, recursiveMimicMorph, 20, 0) == 0){
 				// Resets all of the global variables necessary for mimic/morph to work
-				initialMimic[0] = '\0';
+				initialDestination[0] = '\0';
 				isMimicIntoNewDir = 0;
 				initialDirExists = 1;
 			}
