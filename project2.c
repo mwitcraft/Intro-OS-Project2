@@ -704,87 +704,87 @@ int main(int argc, char** argv){
 				command[0] = '\0';
 				strcat(command, args[0]);
 
+				//Variables initialized to store file names and modes for IO redirection
 				char outFile[MAX_FILENAME];
 				outFile[0] = '\0';
-				char mode[2];
-				mode[0] = '\0';
+				char outMode[2];
+				outMode[0] = '\0';
 				int outFileProvided = 0;
+
+				char inFile[MAX_FILENAME];
+				inFile[0] = '\0';
+				char inMode[2];
+				inMode[0] = '\0';
+				int inFileProvided = 0;
 
 				//Adds additional provided args to arguments list
 				char* arguments[MAX_BUFFER];
 				arguments[0] = command; // 1st command of args list must be the command to run
 				int argumentsSize = 1;
-				// printf("argNum: %i\n", argNum);
 				for(int i = 1; i < argNum; ++i){
-					// printf("%i\n", i);
 					//Set stdin to args[i + 1]
 					if(!strcmp(args[i], "<")){
-
-					}
-					//Set stdout to args[i + 1], created if it doesn't exist, truncated if it does
-					//Mode = "w" (O_WRONLY|O_CREAT|O_TRUNC)
-					if(!strcmp(args[i], ">")){
-						strcat(mode, "w");
-						strcat(outFile, args[i + 1]);
+						//Mode = "r" (O_RDONLY)
+						strcat(inMode, "r");
+						//File path to replace stdin is stored in inFile
+						strcat(inFile, args[i + 1]);
+						//To skip next file, because the file after '<' is the name of the file to replace stdout
 						i = i + 2;
-						outFileProvided = 1;
+						//Set new stdin file flag
+						inFileProvided = 1;
+						//Needed so program does not break, IDK why
 						if(i >= argNum)
 							break;
-						// printf("\t 729\n");
 					}
-					//Set stdout to args[i + 1], created if it doesn't exist, appended to if it does
-					if(!strcmp(args[i], ">>")){
-
+					//Set stdout to args[i + 1], created if it doesn't exist, either truncated or appended to depending on options
+					if(!strcmp(args[i], ">") || !strcmp(args[i], ">>")){
+						//File is truncated
+						//Mode = "w" (O_WRONLY|O_CREAT|O_TRUNC)
+						if(!strcmp(args[i], ">"))
+							strcat(outMode,"w");
+						//File is appended to
+						//Mode = "a" (O_WRONLY|O_CREAT|O_APPEND)
+						if(!strcmp(args[i], ">>"))
+							strcat(outMode, "a");
+						//File path to replace stdout is stored in outFile
+						strcat(outFile, args[i + 1]);
+						//To skip next file, because the file after '>' or '>>' is the name of the file to replace stdout
+						i = i + 2;
+						//Set new stdout file flag
+						outFileProvided = 1;
+						//Needed so program does not break, IDK why
+						if(i >= argNum)
+							break;
 					}
+					//Provided argument is not part of IO redirection, therefore continue like normal
 					else{
+						//Must specify argumentsSize because may skip some "i's" because of redirection
 						arguments[argumentsSize] = args[i];
 						++argumentsSize;
 					}
 				}
-				// printf("\t 740\n");
 
 				arguments[argumentsSize] = NULL; // Last entry in list must be NULL
-
-				// for(int i = 0; i < argumentsSize; ++i){
-				// 	printf("%s\n", arguments[i]);
-				// }
-				//
-				// printf("outFile = %s\n", outFile);
-				// printf("mode = %s\n", mode);
-
-				// return 0;
-
-				// printf("getting to fork\n");
 
 				// Fork a process to run the command with the provided arguments
 				int childPID = 0;
 				switch (childPID = fork()) {
-					case -1:
+					case -1: //Error in fork
 						printf("Error\n");
-					case 0:
+					case 0: //Fork success
+						//If stdout or stdin is being redirected, associate stream with that file
 						if(outFileProvided)
-							freopen(outFile, mode, stdout);
-						execvp(command, arguments);
-						printf("Syserr\n");
-						return 0;
+							freopen(outFile, outMode, stdout);
+						if(inFileProvided)
+							freopen(inFile, inMode, stdin);
+						execvp(command, arguments); //Runs the command with the arguments specified
+						fprintf(stderr, "Syserr with command: %s\n", command);
+						return 0; //Signal end of child process
 					default:
-						waitpid(childPID, NULL, WUNTRACED);
+						waitpid(childPID, NULL, WUNTRACED);//Wait for child process to finish
 				}
-				kill(childPID, SIGTERM);
+				kill(childPID, SIGTERM);//Kill child process
 
-
-				// char* command = args[0];
-				// char* space = " ";
-				//
-				// for(int i = 1; i < argNum; ++i){
-				// 	size_t memToAllocate = strlen(command) + strlen(args[i]) + strlen(space);
-				// 	char* arrayOfCorrectSize = (char*)(malloc)(memToAllocate * sizeof(char));
-				// 	command = strcat(arrayOfCorrectSize, command);
-				// 	command = strcat(command, space);
-				// 	command = strcat(command, args[i]);
-				// }
-				//
-				// system(command);
 			}
 
 		}
