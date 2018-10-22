@@ -552,6 +552,7 @@ int main(int argc, char** argv){
 				for(int i = 0; i < argNum; ++i)
 					printf("%s ", args[i]);
 				printf("\n");
+				fflush(stdout);
 			}
 
 			// ------------------------------------------------------------------------------------------
