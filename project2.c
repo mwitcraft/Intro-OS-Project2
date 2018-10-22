@@ -153,16 +153,16 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 	//If the source path is a directory
 	if(isDirectory(initialMimic)){
 		if(initialDirExists){
-			printf("InitialDir Exists\n");
+			// printf("InitialDir Exists\n");
 			// finalDestPath = initialMimic + sourceBaseFolder + fpath after sourceBaseFolder
 			strcat(finalDestPath, initialMimic);
 			strcat(finalDestPath, "/");
 			strcat(finalDestPath, sourceBasePlus);
-			printf("finalDestPath: %s\n", finalDestPath);
+			// printf("finalDestPath: %s\n", finalDestPath);
 		}
 		else if (!initialDirExists) {
-			printf("InitialDir Does Not Exist\n");
-			printf("sourceBase: %s\n", sourceBaseFolder);
+			// printf("InitialDir Does Not Exist\n");
+			// printf("sourceBase: %s\n", sourceBaseFolder);
 			// finalDestPath = initialMimic + fpath after sourceBaseFolder
 			strcat(finalDestPath, initialMimic);
 			// strcat(finalDestPath, "/");
@@ -172,7 +172,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 			}
 			fPathAfterSourceBase[strlen(fpath) - strlen(initialSource)] = '\0';
 			strcat(finalDestPath, fPathAfterSourceBase);
-			printf("finalDestPath: %s\n", finalDestPath);
+			// printf("finalDestPath: %s\n", finalDestPath);
 		}
 
 	}
@@ -189,7 +189,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 
 	//If source(fpath) is a file, copy the files to the destination(finalDestPath)
 	if(tflag == FTW_F){ //fpath points to a file
-		printf("\tfpath is a file\n");
+		// printf("\tfpath is a file\n");
 		if(copyFile(fpath, finalDestPath) == -1){
 				printf("ERROR copying file\n");
 				return -1;
@@ -198,7 +198,7 @@ int recursiveMimicMorph(const char *fpath, const struct stat *sb, int tflag,stru
 
 	//If source(fpath) is a directory, create the directory as finalDestPath
 	else if(tflag == FTW_D){ //fpath points to a directory
-		printf("\tfpath is a directory\n");
+		// printf("\tfpath is a directory\n");
 		// Gets the stat of the source path so we can apply the same permissions to the final destination
 		struct stat sourceStat;
 		stat(fpath, &sourceStat);
@@ -490,24 +490,31 @@ int main(int argc, char** argv){
 	}
 	path[strlen(pathPnt)] = '\0';
 
-	// Opens provided batch file and stores it in 'batchFile'
-	FILE* batchFile = NULL;
+	// // Opens provided batch file and stores it in 'batchFile'
+	// FILE* batchFile = NULL;
+	// int batchProvided = 0;
+	// // If batch file is provided as an argument
+	// if(argc == 2){
+	// 	freopen(argv[1], "r", stdin);
+	// 	// batchFile = fopen(argv[1], "r");
+	// 	// stdin = batchFile;
+	// 	if(batchFile == NULL)
+	// 		fprintf(stderr, "ERROR: %s", strerror(errno));
+	// 	else
+	// 		batchProvided = 1;
+	// }
+	// // If batch file is piped in
+	// else if(argc == 1){
+	// 	batchFile = stdin;
+	// }
+	// else
+	// 	fprintf(stderr, "ERROR: Unexpected arguments");
+
 	int batchProvided = 0;
-	// If batch file is provided as an argument
 	if(argc == 2){
-		batchFile = fopen(argv[1], "r");
-		stdin = batchFile;
-		if(batchFile == NULL)
-			fprintf(stderr, "ERROR: %s", strerror(errno));
-		else
-			batchProvided = 1;
+		freopen(argv[1], "r", stdin);
+		batchProvided = 1;
 	}
-	// If batch file is piped in
-	else if(argc == 1){
-		batchFile = stdin;
-	}
-	else
-		fprintf(stderr, "ERROR: Unexpected arguments");
 
 	// Loops until end of stdin
 	while(!feof(stdin)){
@@ -538,10 +545,16 @@ int main(int argc, char** argv){
 			// Prints next to prompt the input from provided batch file
 			// Currently buggy, as when batch file is not provided, it prints out on a new line the
 			// command entered
-			if(batchFile != NULL){
-				for(int i = 0; i < argNum; ++i){
-						printf("%s ", args[i]);
-				}
+			// if(batchFile != NULL){
+			// 	for(int i = 0; i < argNum; ++i){
+			// 			printf("%s ", args[i]);
+			// 	}
+			// 	printf("\n");
+			// }
+
+			if(batchProvided){
+				for(int i = 0; i < argNum; ++i)
+					printf("%s ", args[i]);
 				printf("\n");
 			}
 
@@ -691,13 +704,57 @@ int main(int argc, char** argv){
 				command[0] = '\0';
 				strcat(command, args[0]);
 
+				char outFile[MAX_FILENAME];
+				outFile[0] = '\0';
+				char mode[2];
+				mode[0] = '\0';
+				int outFileProvided = 0;
+
 				//Adds additional provided args to arguments list
 				char* arguments[MAX_BUFFER];
 				arguments[0] = command; // 1st command of args list must be the command to run
+				int argumentsSize = 1;
+				// printf("argNum: %i\n", argNum);
 				for(int i = 1; i < argNum; ++i){
-					arguments[i] = args[i];
+					// printf("%i\n", i);
+					//Set stdin to args[i + 1]
+					if(!strcmp(args[i], "<")){
+
+					}
+					//Set stdout to args[i + 1], created if it doesn't exist, truncated if it does
+					//Mode = "w" (O_WRONLY|O_CREAT|O_TRUNC)
+					if(!strcmp(args[i], ">")){
+						strcat(mode, "w");
+						strcat(outFile, args[i + 1]);
+						i = i + 2;
+						outFileProvided = 1;
+						if(i >= argNum)
+							break;
+						// printf("\t 729\n");
+					}
+					//Set stdout to args[i + 1], created if it doesn't exist, appended to if it does
+					if(!strcmp(args[i], ">>")){
+
+					}
+					else{
+						arguments[argumentsSize] = args[i];
+						++argumentsSize;
+					}
 				}
-				arguments[argNum] = NULL; // Last entry in list must be NULL
+				// printf("\t 740\n");
+
+				arguments[argumentsSize] = NULL; // Last entry in list must be NULL
+
+				// for(int i = 0; i < argumentsSize; ++i){
+				// 	printf("%s\n", arguments[i]);
+				// }
+				//
+				// printf("outFile = %s\n", outFile);
+				// printf("mode = %s\n", mode);
+
+				// return 0;
+
+				// printf("getting to fork\n");
 
 				// Fork a process to run the command with the provided arguments
 				int childPID = 0;
@@ -705,6 +762,8 @@ int main(int argc, char** argv){
 					case -1:
 						printf("Error\n");
 					case 0:
+						if(outFileProvided)
+							freopen(outFile, mode, stdout);
 						execvp(command, arguments);
 						printf("Syserr\n");
 						return 0;
